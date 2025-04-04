@@ -6,7 +6,6 @@ import { db } from "./firebase/config";
 import Auth from "./components/Auth";
 import ChatList from "./components/ChatList";
 import { ref, onDisconnect, getDatabase } from "firebase/database";
-import { rtdb } from "./firebase/config";
 
 // Componenta pentru layout-ul când utilizatorul este autentificat
 const AuthenticatedLayout = () => {

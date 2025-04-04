@@ -1,5 +1,6 @@
 import React from "react";
-import { Box, Typography, Avatar, Paper } from "@mui/material";
+import { Box, Typography, Avatar, Paper, Tooltip } from "@mui/material";
+import LockIcon from "@mui/icons-material/Lock";
 
 const Message = ({ message, isOwn }) => {
   // Formatul datei și orei pentru mesaje
@@ -51,9 +52,16 @@ const Message = ({ message, isOwn }) => {
         }}
       >
         <Typography variant="body1">{message.text}</Typography>
-        <Typography variant="caption" sx={{ display: "block", mt: 0.5, opacity: 0.7 }}>
-          {formatTime(message.createdAt)}
-        </Typography>
+        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
+          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+            {formatTime(message.createdAt)}
+          </Typography>
+          {message.encrypted && (
+            <Tooltip title="Mesaj criptat">
+              <LockIcon fontSize="small" sx={{ ml: 1, opacity: 0.7, width: 14, height: 14 }} />
+            </Tooltip>
+          )}
+        </Box>
       </Paper>
       {isOwn && (
         <Avatar

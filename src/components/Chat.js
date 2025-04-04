@@ -23,6 +23,7 @@ import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import Message from "./Message";
 import MessageInput from "./MessageInput";
+import { encryptMessage, decryptMessage, generateChatKey } from "../utils/encryption";
 
 const Chat = ({ selectedUser, onBack }) => {
   const [messages, setMessages] = useState([]);
@@ -30,11 +31,21 @@ const Chat = ({ selectedUser, onBack }) => {
   const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
   const [error, setError] = useState(null);
+  const [chatKey, setChatKey] = useState('');
 
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
   const getChatId = useCallback(() => {
     const ids = [currentUser.uid, selectedUser.id].sort();
     return `${ids[0]}_${ids[1]}`;
+  }, [currentUser, selectedUser]);
+
+  // Generate encryption key for this chat when users are selected
+  useEffect(() => {
+    if (currentUser && selectedUser) {
+      const key = generateChatKey(currentUser.uid, selectedUser.id);
+      setChatKey(key);
+      console.log("Cheia de criptare a fost generată pentru conversație");
+    }
   }, [currentUser, selectedUser]);
 
   // Funcție pentru a derula la ultimul mesaj
@@ -44,7 +55,7 @@ const Chat = ({ selectedUser, onBack }) => {
 
   // Încarcă mesajele în timp real
   useEffect(() => {
-    if (!selectedUser || !currentUser) return;
+    if (!selectedUser || !currentUser || !chatKey) return;
     
     setLoading(true);
     setError(null);
@@ -72,10 +83,17 @@ const Chat = ({ selectedUser, onBack }) => {
           const createdAt = messageData.createdAt ? 
             (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt) 
             : new Date();
+          
+          // Decrypt the message text if it's encrypted
+          let decryptedText = messageData.text;
+          if (messageData.encrypted) {
+            decryptedText = decryptMessage(messageData.text, chatKey);
+          }
             
           messagesList.push({
             id: doc.id,
             ...messageData,
+            text: decryptedText, // Replace encrypted text with decrypted text
             createdAt
           });
         });
@@ -101,7 +119,7 @@ const Chat = ({ selectedUser, onBack }) => {
       setError("Eroare la configurare: " + error.message);
       setLoading(false);
     }
-  }, [currentUser, selectedUser, getChatId]);
+  }, [currentUser, selectedUser, getChatId, chatKey]);
 
   // Derulează automat la ultimul mesaj când se adaugă mesaje noi
   useEffect(() => {
@@ -110,15 +128,23 @@ const Chat = ({ selectedUser, onBack }) => {
 
   // Trimite un mesaj
   const handleSendMessage = async (text) => {
-    if (!text.trim() || !currentUser || !selectedUser) return;
+    if (!text.trim() || !currentUser || !selectedUser || !chatKey) return;
 
     try {
       const chatId = getChatId();
-      console.log("Trimit mesaj în chat ID:", chatId);
+      console.log("Trimit mesaj criptat în chat ID:", chatId);
+      
+      // Encrypt the message before saving to Firestore
+      const encryptedText = encryptMessage(text, chatKey);
+      
+      if (!encryptedText) {
+        throw new Error("Encryption failed");
+      }
       
       // Adaugă mesajul în colecția de mesaje
       await addDoc(collection(db, "messages"), {
-        text,
+        text: encryptedText,
+        encrypted: true, // Flag that indicates this message is encrypted
         senderId: currentUser.uid,
         receiverId: selectedUser.id,
         senderName: currentUser.displayName || "Utilizator",
@@ -127,7 +153,7 @@ const Chat = ({ selectedUser, onBack }) => {
         createdAt: serverTimestamp() // Folosește serverTimestamp pentru consistență
       });
       
-      console.log("Mesaj trimis cu succes");
+      console.log("Mesaj criptat trimis cu succes");
     } catch (error) {
       console.error("Eroare la trimiterea mesajului:", error);
       setError("Nu s-a putut trimite mesajul: " + error.message);
@@ -149,6 +175,11 @@ const Chat = ({ selectedUser, onBack }) => {
             {selectedUser?.displayName?.charAt(0) || "U"}
           </Avatar>
           <Typography variant="h6">{selectedUser?.displayName}</Typography>
+          <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+              🔒 Mesaje criptate
+            </Typography>
+          </Box>
         </Toolbar>
       </AppBar>
 
