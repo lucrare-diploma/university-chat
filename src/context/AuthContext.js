@@ -4,7 +4,8 @@ import {
   signOut, 
   onAuthStateChanged 
 } from "firebase/auth";
-import { auth, googleProvider } from "../firebase/config";
+import { auth, googleProvider, db } from "../firebase/config";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 const AuthContext = createContext();
 
@@ -24,6 +25,18 @@ export const AuthProvider = ({ children }) => {
   // Deconectare
   const logout = async () => {
     try {
+      // Actualizăm statusul la offline înainte de deconectare
+      if (currentUser) {
+        const userRef = doc(db, "users", currentUser.uid);
+        await setDoc(
+          userRef,
+          { online: false, lastActive: serverTimestamp() },
+          { merge: true }
+        );
+        console.log("Status actualizat la offline înainte de deconectare");
+      }
+      
+      // Apoi efectuăm deconectarea
       await signOut(auth);
     } catch (error) {
       console.error("Eroare la deconectare:", error);

@@ -13,12 +13,10 @@ import {
   Menu,
   MenuItem,
   ThemeProvider,
-  createTheme,
-  Tooltip
+  createTheme
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import LockIcon from "@mui/icons-material/Lock";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase/config";
@@ -61,38 +59,29 @@ const AuthenticatedLayout = () => {
               email: currentUser.email,
               photoURL: currentUser.photoURL,
               lastActive: serverTimestamp(),
-              online: true, // Adăugăm un câmp pentru a marca utilizatorii online
-              uid: currentUser.uid // Adăugăm UID-ul explicit pentru referințe mai ușoare
+              online: true,
+              uid: currentUser.uid
             },
             { merge: true }
           );
-
+  
           const unsubscribePresence = onDisconnect(
             ref(getDatabase(), `status/${currentUser.uid}`)
           ).set("offline");
-
+  
           console.log("Utilizatorul a fost salvat în Firestore");
         } catch (error) {
           console.error("Eroare la salvarea utilizatorului:", error);
         }
       }
     };
-
+  
     saveUserToFirestore();
+    
+    // Eliminăm codul de actualizare a statusului de aici,
+    // deoarece acum este gestionat în funcția logout
     return () => {
-      if (currentUser) {
-        // Actualizăm statusul la offline când componentul este demontat
-        try {
-          const userRef = doc(db, "users", currentUser.uid);
-          setDoc(
-            userRef,
-            { online: false, lastActive: serverTimestamp() },
-            { merge: true }
-          );
-        } catch (error) {
-          console.error("Eroare la actualizarea statusului offline:", error);
-        }
-      }
+      // Aici poate rămâne orice alt cleanup necesar, dar fără actualizarea statusului
     };
   }, [currentUser]);
 
