@@ -76,9 +76,10 @@ const ChatList = () => {
   if (isMobile) {
     return (
       <Box sx={{ 
-        height: "calc(100vh - 64px)", 
+        height: "calc(100vh - 56px)", // Adjusted for mobile header height
         bgcolor: "background.default",
-        position: "relative"
+        position: "relative",
+        overflow: "hidden"
       }}>
         <Collapse in={!mobileOpen} timeout={300} mountOnEnter unmountOnExit>
           <Paper 
@@ -86,7 +87,9 @@ const ChatList = () => {
             sx={{ 
               height: "100%", 
               borderRadius: 0,
-              overflow: "hidden"
+              overflow: "hidden",
+              display: "flex",
+              flexDirection: "column"
             }}
           >
             <UserList setSelectedUser={handleSelectUser} />
@@ -99,26 +102,36 @@ const ChatList = () => {
           onClose={handleBack}
           sx={{
             width: "100%",
+            height: "100%",
             flexShrink: 0,
             "& .MuiDrawer-paper": {
               width: "100%",
+              height: "100%",
               boxSizing: "border-box",
-              transition: "transform 0.3s ease-out"
+              transition: "transform 0.3s ease-out",
+              overflow: "hidden" // Prevent content overflow
             },
           }}
           SlideProps={{
             direction: "left"
           }}
+          disableScrollLock={false}
+          keepMounted
         >
           {selectedUser && (
             <Slide direction="left" in={mobileOpen} mountOnEnter unmountOnExit>
-              <div>
+              <Box sx={{ 
+                height: "100%",
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden"
+              }}>
                 <Chat 
                   selectedUser={selectedUser} 
                   onBack={handleBack} 
                   onSwipe={handleSwipe}
                 />
-              </div>
+              </Box>
             </Slide>
           )}
         </Drawer>

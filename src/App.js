@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Box, 
   CssBaseline, 
@@ -14,19 +14,21 @@ import {
   MenuItem,
   ThemeProvider,
   createTheme,
-  Slide,
-  useScrollTrigger,
-  Zoom,
+  ListItemIcon,
   Fab,
   Tooltip,
-  Switch,
-  FormControlLabel
+  Zoom,
+  alpha,
+  Badge
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
 import DarkModeIcon from "@mui/icons-material/DarkMode";
 import LightModeIcon from "@mui/icons-material/LightMode";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
+import LockIcon from "@mui/icons-material/Lock";
+import InfoIcon from "@mui/icons-material/Info";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase/config";
@@ -34,24 +36,15 @@ import Auth from "./components/Auth";
 import ChatList from "./components/ChatList";
 import { ref, onDisconnect, getDatabase } from "firebase/database";
 
-// Component to hide AppBar on scroll down
-function HideOnScroll(props) {
-  const { children } = props;
-  const trigger = useScrollTrigger();
-
-  return (
-    <Slide appear={false} direction="down" in={!trigger}>
-      {children}
-    </Slide>
-  );
-}
-
 // Back to top button
 function ScrollTop(props) {
   const { children } = props;
-  const trigger = useScrollTrigger({
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const trigger = useScrollTriggerFn({
     disableHysteresis: true,
     threshold: 100,
+    disabled: isMobile // Pass as a prop instead of conditional hook usage
   });
 
   const handleClick = (event) => {
@@ -74,11 +67,46 @@ function ScrollTop(props) {
   );
 }
 
+// Helper function to detect scroll position
+function useScrollTriggerFn(options = {}) {
+  const { threshold = 100, disableHysteresis = false, disabled = false } = options;
+  const [trigger, setTrigger] = useState(false);
+  
+  useEffect(() => {
+    if (disabled) {
+      setTrigger(false);
+      return;
+    }
+
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      if (disableHysteresis) {
+        setTrigger(currentScrollY > threshold);
+      } else {
+        if ((trigger && currentScrollY < threshold) || 
+            (!trigger && currentScrollY > threshold)) {
+          setTrigger(currentScrollY > threshold);
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [disableHysteresis, threshold, trigger, disabled]);
+  
+  return trigger;
+}
+
 // Componenta pentru layout-ul când utilizatorul este autentificat
 const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
   const { currentUser, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isSmallMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = useState(null);
 
   const handleMenu = (event) => {
@@ -128,147 +156,273 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
     saveUserToFirestore();
     
     return () => {
-      // Aici poate rămâne orice alt cleanup necesar
+      // Cleanup code if needed
     };
   }, [currentUser]);
 
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", height: "100vh" }}>
+    <Box 
+      sx={{ 
+        display: "flex", 
+        flexDirection: "column", 
+        height: "100vh",
+        overflow: "hidden",
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        maxHeight: "100vh"
+      }}
+    >
       <CssBaseline />
-      <HideOnScroll>
-        <AppBar 
-          position="sticky"
-          elevation={1}
-          sx={{
-            bgcolor: "background.paper",
-            color: "text.primary",
-            transition: "all 0.3s ease"
+      <AppBar 
+        position="sticky"
+        elevation={1}
+        sx={{
+          bgcolor: "background.paper",
+          color: "text.primary",
+          transition: "all 0.3s ease",
+          height: isMobile ? '56px' : '64px',
+          zIndex: theme.zIndex.drawer + 1
+        }}
+      >
+        <Toolbar 
+          sx={{ 
+            minHeight: isMobile ? 56 : 64,
+            px: isSmallMobile ? 1 : 2,
+            gap: 1
           }}
         >
-          <Toolbar sx={{ minHeight: isMobile ? 56 : 64 }}>
-            {isMobile && (
-              <IconButton
-                edge="start"
-                color="inherit"
-                aria-label="menu"
+          {isMobile && (
+            <IconButton
+              edge="start"
+              color="inherit"
+              aria-label="menu"
+              onClick={handleMenu}
+              sx={{ 
+                mr: 1,
+                color: 'text.primary'
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          
+          <Typography 
+            variant="h6" 
+            component="div" 
+            sx={{ 
+              flexGrow: 1,
+              fontSize: isMobile ? "1.1rem" : "1.25rem",
+              fontWeight: 600,
+              display: "flex",
+              alignItems: "center",
+              gap: 1
+            }}
+          >
+            <Badge
+              color="primary"
+              variant="dot"
+              sx={{
+                "& .MuiBadge-badge": {
+                  right: 3,
+                  top: 5
+                }
+              }}
+            >
+              <LockIcon 
+                fontSize="small" 
+                sx={{ 
+                  color: 'primary.main',
+                  animation: "pulse 2s infinite",
+                  "@keyframes pulse": {
+                    "0%": {
+                      opacity: 0.7,
+                    },
+                    "50%": {
+                      opacity: 1,
+                    },
+                    "100%": {
+                      opacity: 0.7,
+                    }
+                  }
+                }} 
+              />
+            </Badge>
+            USV Chat
+          </Typography>
+          
+          {/* Theme toggle button */}
+          <Tooltip title={mode === 'dark' ? "Comută la modul deschis" : "Comută la modul întunecat"}>
+            <IconButton 
+              color="inherit" 
+              onClick={toggleColorMode} 
+              sx={{ ml: 1 }}
+              size={isMobile ? "small" : "medium"}
+            >
+              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
+            </IconButton>
+          </Tooltip>
+
+          {isMobile ? (
+            <Avatar 
+              src={currentUser?.photoURL} 
+              alt={currentUser?.displayName}
+              onClick={handleMenu}
+              sx={{ 
+                cursor: "pointer",
+                width: 36,
+                height: 36,
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  opacity: 0.8,
+                  transform: "scale(1.05)"
+                },
+                border: 1,
+                borderColor: 'divider'
+              }}
+            >
+              {currentUser?.displayName?.charAt(0) || "U"}
+            </Avatar>
+          ) : (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  mr: 1, 
+                  display: { xs: 'none', sm: 'block' } 
+                }}
+              >
+                {currentUser?.displayName}
+              </Typography>
+              <Avatar 
+                src={currentUser?.photoURL} 
+                alt={currentUser?.displayName}
                 onClick={handleMenu}
-                sx={{ mr: 2 }}
+                sx={{ 
+                  cursor: "pointer",
+                  transition: "all 0.2s ease",
+                  "&:hover": {
+                    opacity: 0.8,
+                    transform: "scale(1.05)"
+                  },
+                  border: 1,
+                  borderColor: 'divider'
+                }}
+              >
+                {currentUser?.displayName?.charAt(0) || "U"}
+              </Avatar>
+              <IconButton
+                aria-label="user account menu"
+                aria-controls="menu-appbar"
+                aria-haspopup="true"
+                onClick={handleMenu}
+                color="inherit"
+                edge="end"
+                size="small"
               >
                 <MenuIcon />
               </IconButton>
-            )}
-            <Typography 
-              variant="h6" 
-              component="div" 
-              sx={{ 
-                flexGrow: 1,
-                fontSize: isMobile ? "1.1rem" : "1.25rem",
-                fontWeight: 600
-              }}
-            >
-              USV Chat
-            </Typography>
-            
-            {/* Theme toggle button */}
-            <Tooltip title={mode === 'dark' ? "Comută la modul deschis" : "Comută la modul întunecat"}>
-              <IconButton 
-                color="inherit" 
-                onClick={toggleColorMode} 
-                sx={{ mr: 1 }}
-              >
-                {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-              </IconButton>
-            </Tooltip>
-
-            {isMobile ? (
-              <>
-                <Avatar 
-                  src={currentUser?.photoURL} 
+            </Box>
+          )}
+          
+          <Menu
+            id="menu-appbar"
+            anchorEl={anchorEl}
+            anchorOrigin={{
+              vertical: "bottom",
+              horizontal: "right",
+            }}
+            keepMounted
+            transformOrigin={{
+              vertical: "top",
+              horizontal: "right",
+            }}
+            open={Boolean(anchorEl)}
+            onClose={handleClose}
+            elevation={3}
+            PaperProps={{
+              sx: {
+                mt: 1.5,
+                minWidth: 200,
+                boxShadow: theme.shadows[4],
+                transition: 'all 0.2s ease'
+              }
+            }}
+          >
+            <MenuItem disabled sx={{ opacity: 1 }}>
+              <Box sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                flexDirection: "column",
+                width: "100%",
+                py: 1
+              }}>
+                <Avatar
+                  src={currentUser?.photoURL}
                   alt={currentUser?.displayName}
-                  onClick={handleMenu}
                   sx={{ 
-                    cursor: "pointer",
-                    width: 36,
-                    height: 36,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      opacity: 0.8,
-                      transform: "scale(1.05)"
-                    }
+                    width: 60,
+                    height: 60,
+                    mb: 1,
+                    boxShadow: theme.shadows[2]
                   }}
                 >
                   {currentUser?.displayName?.charAt(0) || "U"}
                 </Avatar>
-                <Menu
-                  id="menu-appbar"
-                  anchorEl={anchorEl}
-                  anchorOrigin={{
-                    vertical: "bottom",
-                    horizontal: "right",
-                  }}
-                  keepMounted
-                  transformOrigin={{
-                    vertical: "top",
-                    horizontal: "right",
-                  }}
-                  open={Boolean(anchorEl)}
-                  onClose={handleClose}
-                >
-                  <MenuItem disabled sx={{ opacity: 1 }}>
-                    <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                      {currentUser?.displayName}
-                    </Typography>
-                  </MenuItem>
-                  <MenuItem onClick={handleLogout}>
-                    <LogoutIcon fontSize="small" sx={{ mr: 1 }} />
-                    Deconectare
-                  </MenuItem>
-                </Menu>
-              </>
-            ) : (
-              <Box sx={{ display: "flex", alignItems: "center" }}>
-                <Typography variant="body1" sx={{ mr: 2 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 500 }}>
                   {currentUser?.displayName}
                 </Typography>
-                <Avatar 
-                  src={currentUser?.photoURL} 
-                  alt={currentUser?.displayName}
-                  sx={{ 
-                    mr: 2,
-                    transition: "all 0.2s ease",
-                    "&:hover": {
-                      opacity: 0.8,
-                      transform: "scale(1.05)"
-                    }
-                  }}
-                >
-                  {currentUser?.displayName?.charAt(0) || "U"}
-                </Avatar>
-                <Button 
-                  color="primary" 
-                  onClick={logout}
-                  variant="outlined"
-                  startIcon={<LogoutIcon />}
-                  size="small"
-                  sx={{
-                    borderRadius: 2,
-                    textTransform: 'none',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-                    }
-                  }}
-                >
-                  Deconectare
-                </Button>
+                <Typography variant="body2" color="text.secondary">
+                  {currentUser?.email}
+                </Typography>
               </Box>
-            )}
-          </Toolbar>
-        </AppBar>
-      </HideOnScroll>
+            </MenuItem>
+            
+            <MenuItem onClick={handleClose}>
+              <ListItemIcon>
+                <AccountCircleIcon fontSize="small" />
+              </ListItemIcon>
+              <Typography variant="body2">Profil</Typography>
+            </MenuItem>
+            
+            <MenuItem onClick={toggleColorMode}>
+              <ListItemIcon>
+                {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </ListItemIcon>
+              <Typography variant="body2">
+                {mode === 'dark' ? "Mod luminos" : "Mod întunecat"}
+              </Typography>
+            </MenuItem>
+            
+            <MenuItem onClick={handleClose}>
+              <ListItemIcon>
+                <InfoIcon fontSize="small" />
+              </ListItemIcon>
+              <Typography variant="body2">Despre aplicație</Typography>
+            </MenuItem>
+            
+            <MenuItem onClick={handleLogout} sx={{ color: 'error.main' }}>
+              <ListItemIcon>
+                <LogoutIcon fontSize="small" sx={{ color: 'error.main' }} />
+              </ListItemIcon>
+              <Typography variant="body2">Deconectare</Typography>
+            </MenuItem>
+          </Menu>
+        </Toolbar>
+      </AppBar>
       <div id="back-to-top-anchor" />
-      <ChatList />
+      
+      <Box 
+        sx={{ 
+          flexGrow: 1, 
+          overflow: "hidden",
+          height: isMobile ? 'calc(100% - 56px)' : 'calc(100% - 64px)'
+        }}
+      >
+        <ChatList />
+      </Box>
       
       <ScrollTop>
         <Fab color="primary" size="medium" aria-label="înapoi sus">
@@ -320,6 +474,10 @@ const App = () => {
         default: mode === 'dark' ? '#121212' : '#f5f5f5',
         paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
       },
+      text: {
+        primary: mode === 'dark' ? '#e0e0e0' : '#121212',
+        secondary: mode === 'dark' ? '#a0a0a0' : '#666666',
+      }
     },
     typography: {
       fontFamily: [
@@ -352,6 +510,17 @@ const App = () => {
       },
       MuiCssBaseline: {
         styleOverrides: {
+          'html, body': {
+            overflow: 'hidden',
+            height: '100%',
+            width: '100%',
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            WebkitOverflowScrolling: 'touch',
+          },
           body: {
             scrollbarWidth: 'thin',
             '&::-webkit-scrollbar': {
@@ -368,6 +537,57 @@ const App = () => {
                 background: mode === 'dark' ? '#777' : '#555',
               },
             },
+            '@media (max-width: 600px)': {
+              '&::-webkit-scrollbar': {
+                width: '4px',
+                height: '4px',
+              },
+            }
+          },
+          '#root': {
+            height: '100%',
+            overflow: 'hidden',
+            position: 'fixed',
+            width: '100%'
+          }
+        },
+      },
+      MuiDrawer: {
+        styleOverrides: {
+          paper: {
+            '@media (max-width: 600px)': {
+              height: 'calc(100% - 56px)',
+            },
+          }
+        }
+      },
+      MuiToolbar: {
+        styleOverrides: {
+          root: {
+            '@media (max-width: 600px)': {
+              minHeight: '56px',
+              paddingLeft: '8px',
+              paddingRight: '8px'
+            },
+          },
+        },
+      },
+      MuiIconButton: {
+        styleOverrides: {
+          root: {
+            transition: 'all 0.2s ease',
+            '@media (max-width: 600px)': {
+              padding: '8px',
+            },
+          },
+        },
+      },
+      MuiAvatar: {
+        styleOverrides: {
+          root: {
+            boxShadow: mode === 'dark' 
+              ? '0 0 0 1px rgba(255,255,255,0.12)' 
+              : '0 0 0 1px rgba(0,0,0,0.12)',
           },
         },
       },

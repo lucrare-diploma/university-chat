@@ -200,7 +200,8 @@ const UserList = ({ setSelectedUser }) => {
       height: "100%", 
       display: "flex", 
       flexDirection: "column",
-      overflow: "hidden"
+      overflow: "hidden",
+      maxHeight: "100%"
     }}>
       <Box sx={{ 
         p: 2, 
@@ -368,7 +369,9 @@ const UserList = ({ setSelectedUser }) => {
       <Box sx={{ 
         flexGrow: 1, 
         overflow: "auto",
-        bgcolor: theme.palette.background.default
+        bgcolor: theme.palette.background.default,
+        height: isMobile ? "calc(100% - 120px)" : "auto", // Ensure space for headers on mobile
+        WebkitOverflowScrolling: "touch" // Improved inertial scrolling on iOS
       }}>
         <Fade in={!loading} timeout={500}>
           <List sx={{ p: 0 }}>

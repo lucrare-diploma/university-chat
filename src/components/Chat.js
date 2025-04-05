@@ -352,21 +352,23 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         flexDirection: "column",
         borderRadius: 0,
         position: "relative",
-        overflow: "hidden"
+        overflow: "hidden",
+        maxHeight: "100vh" // Added to ensure container doesn't overflow
       }}
       elevation={0}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
       <AppBar 
-        position="static" 
+        position="sticky" 
         color="default" 
         elevation={1}
         sx={{
           backgroundColor: "background.paper",
           borderBottom: 1,
           borderColor: "divider",
-          zIndex: 10
+          zIndex: 10,
+          top: 0
         }}
       >
         <Toolbar sx={{ minHeight: isMobile ? 56 : 64 }}>
@@ -572,7 +574,8 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             ? alpha(theme.palette.background.paper, 0.4) 
             : theme.palette.background.default,
           mt: 3,
-          position: "relative"
+          position: "relative",
+          height: "calc(100% - 130px)" // Make room for header and input
         }}
         onScroll={handleScroll}
       >
@@ -684,7 +687,18 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       </Box>
 
       <Divider />
-      <MessageInput onSendMessage={handleSendMessage} isMobile={isMobile} />
+      <Box
+        sx={{
+          position: isMobile ? "sticky" : "relative",
+          bottom: 0,
+          width: "100%",
+          zIndex: 10,
+          backgroundColor: "background.paper",
+          boxShadow: isMobile ? "0px -2px 4px rgba(0,0,0,0.05)" : "none"
+        }}
+      >
+        <MessageInput onSendMessage={handleSendMessage} isMobile={isMobile} />
+      </Box>
 
       {/* Information Drawer */}
       <SwipeableDrawer

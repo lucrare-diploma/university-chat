@@ -132,6 +132,8 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
         position: "relative",
         borderTop: 1,
         borderColor: "divider",
+        width: "100%",
+        boxSizing: "border-box"
       }}
     >
       {/* Attach options */}
@@ -294,6 +296,10 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
                 "&.Mui-focused": {
                   boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`
                 }
+              },
+              "& .MuiInputBase-inputMultiline": {
+                // Limit the height of multiline input on mobile to avoid keyboard issues
+                maxHeight: isMobile ? "80px" : "120px",
               }
             }}
             autoFocus

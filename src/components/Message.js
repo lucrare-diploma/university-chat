@@ -105,7 +105,7 @@ const Message = ({
   };
 
   const avatarSize = isMobile ? 28 : 32;
-  const maxWidth = isMobile ? "80%" : "65%";
+  const maxWidth = isMobile ? "70%" : "65%";
   
   // Adjust margins for grouped messages
   const marginTop = isGroupedWithPrev ? 0.5 : 1.5;
