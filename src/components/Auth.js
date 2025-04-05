@@ -7,8 +7,7 @@ import {
   useTheme, 
   useMediaQuery,
   Container,
-  Avatar,
-  Tooltip
+  Avatar
 } from "@mui/material";
 import GoogleIcon from "@mui/icons-material/Google";
 import ChatIcon from "@mui/icons-material/Chat";

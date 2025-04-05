@@ -3,7 +3,6 @@ import {
   ListItem,
   ListItemAvatar,
   Avatar,
-  ListItemText,
   Divider,
   Typography,
   Badge,
@@ -16,19 +15,30 @@ const UserItem = ({ user, onSelect }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   
+  // Verificăm dacă user există pentru a evita erorile
+  if (!user) {
+    return null;
+  }
+  
   // Status indicator - green dot for online
   const badgeStatus = user.online ? "success" : "default";
 
   return (
     <>
       <ListItem 
-        button 
-        onClick={onSelect}
+        // Folosim component="button" în loc de button prop
+        component="button"
+        onClick={() => onSelect(user)}
         alignItems="center"
         sx={{ 
           py: 1.5,
           px: 2,
           transition: "all 0.2s",
+          width: '100%',
+          textAlign: 'left',
+          border: 'none',
+          backgroundColor: 'transparent',
+          cursor: 'pointer',
           "&:hover": {
             backgroundColor: "action.hover",
           }
@@ -54,32 +64,32 @@ const UserItem = ({ user, onSelect }) => {
             </Avatar>
           </Badge>
         </ListItemAvatar>
-        <ListItemText 
-          primary={
-            <Typography 
-              variant="body1" 
-              noWrap 
-              sx={{ 
-                fontWeight: 500,
-                fontSize: isMobile ? "0.95rem" : "1rem"
-              }}
-            >
-              {user.displayName || "Utilizator"}
-            </Typography>
-          }
-          secondary={
-            <Box component="span" sx={{ display: "flex", alignItems: "center" }}>
-              <Typography
-                variant="body2"
-                color="text.secondary"
-                noWrap
-                sx={{ fontSize: isMobile ? "0.8rem" : "0.875rem" }}
-              >
-                {user.online ? "Online" : "Offline"}
-              </Typography>
-            </Box>
-          }
-        />
+        
+        <Box sx={{ ml: 1.5, flex: 1, minWidth: 0 }}>
+          <Typography 
+            variant="body1" 
+            noWrap 
+            sx={{ 
+              fontWeight: 500,
+              fontSize: isMobile ? "0.95rem" : "1rem"
+            }}
+          >
+            {user.displayName || "Utilizator"}
+          </Typography>
+          
+          <Typography
+            variant="body2"
+            component="span"
+            color="text.secondary"
+            noWrap
+            sx={{ 
+              fontSize: isMobile ? "0.8rem" : "0.875rem",
+              display: "block"
+            }}
+          >
+            {user.online ? "Online" : "Offline"}
+          </Typography>
+        </Box>
       </ListItem>
       <Divider component="li" />
     </>
