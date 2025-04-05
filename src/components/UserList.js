@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   List,
   Typography,
@@ -9,10 +9,22 @@ import {
   useMediaQuery,
   InputBase,
   IconButton,
-  alpha
+  alpha,
+  Paper,
+  Fade,
+  Zoom,
+  Chip,
+  Divider,
+  Tooltip,
+  Button,
+  Collapse
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import ClearIcon from "@mui/icons-material/Clear";
+import PersonIcon from "@mui/icons-material/Person";
+import PeopleIcon from "@mui/icons-material/People";
 import { collection, query, getDocs, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -24,9 +36,28 @@ const UserList = ({ setSelectedUser }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filter, setFilter] = useState("all"); // "all", "online", "offline"
+  const [showFilters, setShowFilters] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const searchInputRef = useRef(null);
+  
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
+
+  // Focus search input with keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -57,7 +88,7 @@ const UserList = ({ setSelectedUser }) => {
         
         console.log("Lista de utilizatori actualizată:", usersList);
         setUsers(usersList);
-        setFilteredUsers(usersList);
+        applyFilters(usersList, searchTerm, filter);
         setLoading(false);
       }, (err) => {
         console.error("Eroare la ascultarea documentelor:", err);
@@ -73,19 +104,35 @@ const UserList = ({ setSelectedUser }) => {
     }
   }, [currentUser]);
 
-  useEffect(() => {
-    if (searchTerm.trim() === "") {
-      setFilteredUsers(users);
-    } else {
-      const filtered = users.filter(user => 
-        user.displayName && user.displayName.toLowerCase().includes(searchTerm.toLowerCase())
+  // Apply filters when search term or filter changes
+  const applyFilters = (usersList, search, statusFilter) => {
+    let result = [...usersList];
+    
+    // Apply search filter
+    if (search.trim() !== "") {
+      result = result.filter(user => 
+        user.displayName && user.displayName.toLowerCase().includes(search.toLowerCase())
       );
-      setFilteredUsers(filtered);
     }
-  }, [searchTerm, users]);
+    
+    // Apply status filter
+    if (statusFilter === "online") {
+      result = result.filter(user => user.online);
+    } else if (statusFilter === "offline") {
+      result = result.filter(user => !user.online);
+    }
+    
+    setFilteredUsers(result);
+  };
+
+  useEffect(() => {
+    applyFilters(users, searchTerm, filter);
+  }, [searchTerm, filter, users]);
 
   const refreshUsers = async () => {
-    setLoading(true);
+    if (refreshing) return;
+    
+    setRefreshing(true);
     setError(null);
     
     try {
@@ -106,87 +153,304 @@ const UserList = ({ setSelectedUser }) => {
       });
       
       setUsers(usersList);
-      setFilteredUsers(usersList);
+      applyFilters(usersList, searchTerm, filter);
     } catch (error) {
       console.error("Eroare la reîncărcarea utilizatorilor:", error);
       setError("Eroare la reîncărcarea listei: " + error.message);
     } finally {
-      setLoading(false);
+      setTimeout(() => setRefreshing(false), 600); // Show loading for at least 600ms
     }
   };
 
+  const clearSearch = () => {
+    setSearchTerm("");
+    searchInputRef.current?.focus();
+  };
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
+    if (isMobile) {
+      setShowFilters(false);
+    }
+  };
+
+  // Count online users
+  const onlineCount = users.filter(user => user.online).length;
+
   if (loading) {
     return (
-      <Box sx={{ display: "flex", justifyContent: "center", p: 3, height: "100%" }}>
-        <CircularProgress />
+      <Box sx={{ 
+        display: "flex", 
+        flexDirection: "column",
+        justifyContent: "center", 
+        alignItems: "center",
+        p: 3, 
+        height: "100%" 
+      }}>
+        <CircularProgress size={40} thickness={4} />
+        <Typography variant="body2" sx={{ mt: 2, color: "text.secondary" }}>
+          Se încarcă utilizatorii...
+        </Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <Box sx={{ 
+      height: "100%", 
+      display: "flex", 
+      flexDirection: "column",
+      overflow: "hidden"
+    }}>
       <Box sx={{ 
         p: 2, 
         display: "flex", 
         justifyContent: "space-between", 
         alignItems: "center",
         borderBottom: 1,
-        borderColor: "divider"
+        borderColor: "divider",
+        bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.primary.dark, 0.1) : alpha(theme.palette.primary.light, 0.1)
       }}>
-        <Typography variant="h6" sx={{ fontSize: isMobile ? "1.1rem" : "1.25rem" }}>
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            fontSize: isMobile ? "1.1rem" : "1.25rem",
+            fontWeight: 600,
+            color: "primary.main"
+          }}
+        >
           Utilizatori
+          <Chip 
+            label={`${onlineCount} online`}
+            color="success"
+            size="small"
+            variant="outlined"
+            sx={{ ml: 1, fontSize: '0.7rem', height: 20 }}
+          />
         </Typography>
-        <IconButton size="small" onClick={refreshUsers} aria-label="Reîmprospătează lista">
-          <RefreshIcon />
-        </IconButton>
+        <Tooltip title="Reîmprospătează lista">
+          <IconButton 
+            size="small" 
+            onClick={refreshUsers} 
+            aria-label="Reîmprospătează lista"
+            color="primary"
+            disabled={refreshing}
+          >
+            {refreshing ? 
+              <CircularProgress size={20} color="inherit" /> : 
+              <RefreshIcon />
+            }
+          </IconButton>
+        </Tooltip>
       </Box>
       
-      <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: "divider" }}>
+      <Box sx={{ 
+        px: 2, 
+        py: 1.5, 
+        borderBottom: 1, 
+        borderColor: "divider",
+        bgcolor: theme.palette.background.paper
+      }}>
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center',
           bgcolor: (theme) => alpha(theme.palette.common.black, 0.05),
-          borderRadius: 1,
-          px: 1
+          borderRadius: 2,
+          px: 1,
+          boxShadow: 'inset 0 0 2px rgba(0,0,0,0.1)'
         }}>
           <InputBase
             placeholder="Caută utilizatori..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            sx={{ ml: 1, flex: 1, fontSize: "0.9rem" }}
+            inputRef={searchInputRef}
+            startAdornment={
+              <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
+            }
+            endAdornment={
+              searchTerm && (
+                <IconButton 
+                  size="small" 
+                  onClick={clearSearch}
+                  sx={{ p: 0.5 }}
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              )
+            }
+            sx={{ 
+              ml: 1, 
+              flex: 1, 
+              fontSize: "0.9rem",
+              '& .MuiInputBase-input': {
+                py: 1
+              }
+            }}
+            inputProps={{
+              'aria-label': 'caută utilizatori',
+              'placeholder': isSmall ? 'Caută...' : 'Caută utilizatori... (Ctrl+K)'
+            }}
           />
-          <IconButton type="button" sx={{ p: '10px' }} aria-label="search">
-            <SearchIcon />
-          </IconButton>
+          <Tooltip title="Filtrează utilizatorii">
+            <IconButton 
+              type="button" 
+              sx={{ p: '8px' }} 
+              aria-label="filtrează"
+              color={showFilters || filter !== 'all' ? 'primary' : 'default'}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <FilterListIcon />
+            </IconButton>
+          </Tooltip>
         </Box>
+
+        <Collapse in={showFilters}>
+          <Box sx={{ 
+            display: 'flex', 
+            mt: 1.5, 
+            gap: 1,
+            justifyContent: 'space-between'
+          }}>
+            <Button
+              size="small"
+              variant={filter === 'all' ? 'contained' : 'outlined'}
+              onClick={() => handleFilterChange('all')}
+              startIcon={<PeopleIcon />}
+              sx={{ 
+                flex: 1,
+                textTransform: 'none',
+                borderRadius: 1.5
+              }}
+            >
+              Toți
+            </Button>
+            <Button
+              size="small"
+              color="success"
+              variant={filter === 'online' ? 'contained' : 'outlined'}
+              onClick={() => handleFilterChange('online')}
+              sx={{ 
+                flex: 1,
+                textTransform: 'none',
+                borderRadius: 1.5
+              }}
+            >
+              Online
+            </Button>
+            <Button
+              size="small"
+              color="secondary"
+              variant={filter === 'offline' ? 'contained' : 'outlined'}
+              onClick={() => handleFilterChange('offline')}
+              sx={{ 
+                flex: 1,
+                textTransform: 'none',
+                borderRadius: 1.5
+              }}
+            >
+              Offline
+            </Button>
+          </Box>
+        </Collapse>
       </Box>
 
-      {error && <Alert severity="error" sx={{ mx: 2, my: 1 }}>{error}</Alert>}
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mx: 2, my: 1 }}
+          onClose={() => setError(null)}
+          variant="filled"
+        >
+          {error}
+        </Alert>
+      )}
       
-      <Box sx={{ flexGrow: 1, overflow: "auto" }}>
-        <List sx={{ p: 0 }}>
-          {filteredUsers.length > 0 ? (
-            filteredUsers.map((user) => (
-              <UserItem 
-                key={user.id} 
-                user={user} 
-                onSelect={() => setSelectedUser(user)} 
-              />
-            ))
-          ) : (
-            <Box sx={{ p: 2, textAlign: "center" }}>
-              <Typography sx={{ mb: 2 }}>
-                {searchTerm ? "Niciun rezultat găsit" : "Nu există alți utilizatori disponibili"}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {searchTerm 
-                  ? "Încearcă alte cuvinte cheie"
-                  : "Asigură-te că există mai mulți utilizatori conectați și că sunt corect salvați în baza de date."
-                }
-              </Typography>
-            </Box>
-          )}
-        </List>
+      <Box sx={{ 
+        flexGrow: 1, 
+        overflow: "auto",
+        bgcolor: theme.palette.background.default
+      }}>
+        <Fade in={!loading} timeout={500}>
+          <List sx={{ p: 0 }}>
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user, index) => (
+                <Zoom 
+                  in={true} 
+                  key={user.id}
+                  style={{ 
+                    transitionDelay: `${index * 50}ms`,
+                    transitionDuration: '250ms'
+                  }}
+                >
+                  <div>
+                    <UserItem 
+                      user={user} 
+                      onSelect={() => setSelectedUser(user)} 
+                    />
+                  </div>
+                </Zoom>
+              ))
+            ) : (
+              <Fade in={true}>
+                <Box sx={{ 
+                  p: 3, 
+                  textAlign: "center",
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: 200
+                }}>
+                  <PersonIcon 
+                    sx={{ 
+                      fontSize: 48, 
+                      color: 'text.disabled',
+                      mb: 2
+                    }} 
+                  />
+                  <Typography variant="body1" sx={{ mb: 1, fontWeight: 500 }}>
+                    {searchTerm || filter !== 'all' 
+                      ? "Niciun rezultat găsit" 
+                      : "Nu există alți utilizatori disponibili"
+                    }
+                  </Typography>
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{ maxWidth: 300, mx: 'auto' }}
+                  >
+                    {searchTerm 
+                      ? "Încearcă alte cuvinte cheie sau resetează filtrele"
+                      : filter !== 'all'
+                        ? `Nu există utilizatori ${filter === 'online' ? 'online' : 'offline'} în acest moment`
+                        : "Asigură-te că există mai mulți utilizatori conectați și că sunt corect salvați în baza de date."
+                    }
+                  </Typography>
+                  {(searchTerm || filter !== 'all') && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setFilter('all');
+                      }}
+                      sx={{ mt: 2 }}
+                    >
+                      Resetează filtrele
+                    </Button>
+                  )}
+                </Box>
+              </Fade>
+            )}
+            {filteredUsers.length > 0 && (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  {filteredUsers.length} utilizatori afișați
+                </Typography>
+              </Box>
+            )}
+          </List>
+        </Fade>
       </Box>
     </Box>
   );

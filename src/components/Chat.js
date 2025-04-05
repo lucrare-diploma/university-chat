@@ -12,11 +12,26 @@ import {
   useMediaQuery,
   Badge,
   CircularProgress,
-  Tooltip
+  Tooltip,
+  Slide,
+  Zoom,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Fade,
+  Alert,
+  Snackbar,
+  Button,
+  alpha
 } from "@mui/material";
+import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import LockIcon from "@mui/icons-material/Lock";
+import InfoIcon from "@mui/icons-material/Info";
+import DeleteIcon from "@mui/icons-material/Delete";
+import PersonIcon from "@mui/icons-material/Person";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { 
   collection, 
   query, 
@@ -24,7 +39,9 @@ import {
   onSnapshot, 
   addDoc, 
   where, 
-  serverTimestamp 
+  serverTimestamp,
+  limit,
+  getDocs
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -32,15 +49,27 @@ import Message from "./Message";
 import MessageInput from "./MessageInput";
 import { encryptMessage, decryptMessage, generateChatKey } from "../utils/encryption";
 
-const Chat = ({ selectedUser, onBack }) => {
+const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [chatKey, setChatKey] = useState('');
+  const [infoOpen, setInfoOpen] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [loadedAll, setLoadedAll] = useState(false);
+  const [messagesLimit, setMessagesLimit] = useState(20);
+  const [touchStart, setTouchStart] = useState(null);
+  
   const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const prevScrollHeightRef = useRef(0);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
-  const [chatKey, setChatKey] = useState('');
+  const isPortrait = useMediaQuery('(orientation: portrait)');
 
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
   const getChatId = useCallback(() => {
@@ -58,8 +87,105 @@ const Chat = ({ selectedUser, onBack }) => {
   }, [currentUser, selectedUser]);
 
   // Funcție pentru a derula la ultimul mesaj
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (behavior = "smooth") => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  };
+
+  // Setup swipe gesture handlers (for mobile back navigation)
+  const handleTouchStart = (e) => {
+    setTouchStart({
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY
+    });
+  };
+
+  const handleTouchEnd = (e) => {
+    if (!touchStart || !onSwipe) return;
+
+    const xDiff = touchStart.x - e.changedTouches[0].clientX;
+    const yDiff = touchStart.y - e.changedTouches[0].clientY;
+    
+    // Only register horizontal swipes that are more significant than vertical
+    if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 70) {
+      if (xDiff < 0) { // Swiped right
+        onSwipe("right");
+      } else { // Swiped left
+        onSwipe("left");
+      }
+    }
+    
+    setTouchStart(null);
+  };
+
+  // Handle infinite scroll
+  const handleScroll = () => {
+    const container = messagesContainerRef.current;
+    if (!container || loading || loadingMore || loadedAll) return;
+
+    // Check if we're near the top of the scroll container
+    if (container.scrollTop < 100) {
+      loadMoreMessages();
+    }
+  };
+
+  // Load more messages (for scrollback)
+  const loadMoreMessages = async () => {
+    if (loadingMore || loadedAll || !chatKey) return;
+    
+    try {
+      setLoadingMore(true);
+      prevScrollHeightRef.current = messagesContainerRef.current?.scrollHeight || 0;
+      
+      const chatId = getChatId();
+      const messagesRef = collection(db, "messages");
+      const q = query(
+        messagesRef,
+        where("chatId", "==", chatId),
+        orderBy("createdAt", "asc"),
+        limit(messagesLimit + 20)
+      );
+
+      const snapshot = await getDocs(q);
+      const messagesList = [];
+      
+      snapshot.forEach((doc) => {
+        const messageData = doc.data();
+        const createdAt = messageData.createdAt ? 
+          (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt) 
+          : new Date();
+        
+        // Decrypt the message text if it's encrypted
+        let decryptedText = messageData.text;
+        if (messageData.encrypted) {
+          decryptedText = decryptMessage(messageData.text, chatKey);
+        }
+          
+        messagesList.push({
+          id: doc.id,
+          ...messageData,
+          text: decryptedText,
+          createdAt
+        });
+      });
+      
+      setMessages(messagesList);
+      setMessagesLimit(prevLimit => prevLimit + 20);
+      setLoadedAll(messagesList.length < messagesLimit + 20);
+
+    } catch (error) {
+      console.error("Error loading more messages:", error);
+    } finally {
+      setLoadingMore(false);
+      
+      // Maintain scroll position after loading more messages
+      setTimeout(() => {
+        if (messagesContainerRef.current) {
+          const newScrollHeight = messagesContainerRef.current.scrollHeight;
+          const scrollDiff = newScrollHeight - prevScrollHeightRef.current;
+          messagesContainerRef.current.scrollTop = scrollDiff;
+        }
+      }, 100);
+    }
   };
 
   // Încarcă mesajele în timp real
@@ -78,7 +204,8 @@ const Chat = ({ selectedUser, onBack }) => {
       const q = query(
         messagesRef,
         where("chatId", "==", chatId),
-        orderBy("createdAt", "asc")
+        orderBy("createdAt", "asc"),
+        limit(messagesLimit)
       );
 
       console.log("Configurez listener pentru mesaje...");
@@ -110,6 +237,7 @@ const Chat = ({ selectedUser, onBack }) => {
         console.log("Mesaje procesate:", messagesList.length);
         setMessages(messagesList);
         setLoading(false);
+        setLoadedAll(messagesList.length < messagesLimit);
         
         // Derulează la ultimul mesaj după ce se încarcă
         setTimeout(scrollToBottom, 100);
@@ -128,12 +256,21 @@ const Chat = ({ selectedUser, onBack }) => {
       setError("Eroare la configurare: " + error.message);
       setLoading(false);
     }
-  }, [currentUser, selectedUser, getChatId, chatKey]);
+  }, [currentUser, selectedUser, getChatId, chatKey, messagesLimit]);
 
   // Derulează automat la ultimul mesaj când se adaugă mesaje noi
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    if (!loading && messages.length > 0) {
+      // Only auto-scroll if we're already near the bottom
+      const container = messagesContainerRef.current;
+      if (container) {
+        const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 100;
+        if (isNearBottom) {
+          scrollToBottom();
+        }
+      }
+    }
+  }, [messages, loading]);
 
   // Trimite un mesaj
   const handleSendMessage = async (text) => {
@@ -163,10 +300,46 @@ const Chat = ({ selectedUser, onBack }) => {
       });
       
       console.log("Mesaj criptat trimis cu succes");
+      scrollToBottom("smooth");
     } catch (error) {
       console.error("Eroare la trimiterea mesajului:", error);
       setError("Nu s-a putut trimite mesajul: " + error.message);
     }
+  };
+
+  // Menu handlers
+  const handleMenuOpen = (event) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleCopyKey = () => {
+    if (chatKey) {
+      navigator.clipboard.writeText(chatKey)
+        .then(() => {
+          setSnackbarMessage("Cheia de criptare a fost copiată în clipboard");
+          setSnackbarOpen(true);
+        })
+        .catch(err => {
+          console.error("Eroare la copierea cheii:", err);
+        });
+    }
+    handleMenuClose();
+  };
+
+  const toggleInfoDrawer = () => {
+    setInfoOpen(!infoOpen);
+    handleMenuClose();
+  };
+
+  // Format date for the drawer
+  const formatDate = (date) => {
+    if (!date) return "Necunoscut";
+    const options = { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+    return new Date(date).toLocaleDateString('ro-RO', options);
   };
 
   const badgeStatus = selectedUser?.online ? "success" : "default";
@@ -177,9 +350,13 @@ const Chat = ({ selectedUser, onBack }) => {
         height: "100%", 
         display: "flex", 
         flexDirection: "column",
-        borderRadius: 0
+        borderRadius: 0,
+        position: "relative",
+        overflow: "hidden"
       }}
       elevation={0}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
     >
       <AppBar 
         position="static" 
@@ -188,7 +365,8 @@ const Chat = ({ selectedUser, onBack }) => {
         sx={{
           backgroundColor: "background.paper",
           borderBottom: 1,
-          borderColor: "divider"
+          borderColor: "divider",
+          zIndex: 10
         }}
       >
         <Toolbar sx={{ minHeight: isMobile ? 56 : 64 }}>
@@ -196,7 +374,13 @@ const Chat = ({ selectedUser, onBack }) => {
             edge="start" 
             color="inherit" 
             onClick={onBack} 
-            sx={{ mr: 2 }}
+            sx={{ 
+              mr: 2,
+              transition: "all 0.2s",
+              "&:hover": {
+                backgroundColor: alpha(theme.palette.primary.main, 0.1)
+              }
+            }}
             aria-label="înapoi"
           >
             <ArrowBackIcon />
@@ -206,6 +390,14 @@ const Chat = ({ selectedUser, onBack }) => {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             variant="dot"
             color={badgeStatus}
+            sx={{
+              "& .MuiBadge-badge": {
+                boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
+                width: 12,
+                height: 12,
+                borderRadius: '50%'
+              }
+            }}
           >
             <Avatar 
               src={selectedUser?.photoURL} 
@@ -213,102 +405,278 @@ const Chat = ({ selectedUser, onBack }) => {
               sx={{ 
                 mr: 2,
                 width: isMobile ? 40 : 48, 
-                height: isMobile ? 40 : 48
+                height: isMobile ? 40 : 48,
+                cursor: "pointer",
+                transition: "transform 0.2s ease",
+                "&:hover": {
+                  transform: "scale(1.05)"
+                }
               }}
+              onClick={toggleInfoDrawer}
             >
               {selectedUser?.displayName?.charAt(0) || "U"}
             </Avatar>
           </Badge>
-          <Box sx={{ flexGrow: 1 }}>
+          <Box 
+            sx={{ 
+              flexGrow: 1, 
+              cursor: "pointer",
+              "&:hover": {
+                opacity: 0.8
+              }
+            }}
+            onClick={toggleInfoDrawer}
+          >
             <Typography 
               variant="h6"
-              sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
+              sx={{ 
+                fontSize: isMobile ? "1rem" : "1.25rem",
+                fontWeight: 500
+              }}
             >
               {selectedUser?.displayName}
             </Typography>
             <Typography 
               variant="body2" 
               color="text.secondary"
-              sx={{ fontSize: isMobile ? "0.75rem" : "0.875rem" }}
+              sx={{ 
+                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                display: "flex",
+                alignItems: "center"
+              }}
             >
+              <Box 
+                sx={{ 
+                  width: 8, 
+                  height: 8, 
+                  borderRadius: "50%", 
+                  bgcolor: selectedUser?.online ? "success.main" : "text.disabled",
+                  mr: 0.5,
+                  display: "inline-block"
+                }} 
+              />
               {selectedUser?.online ? "Online" : "Offline"}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Tooltip title="Mesaje criptate end-to-end">
-              <LockIcon fontSize="small" color="success" sx={{ mr: 1 }} />
+              <LockIcon 
+                fontSize="small" 
+                color="success" 
+                sx={{ 
+                  mr: 1,
+                  animation: infoOpen ? "none" : "pulse 2s infinite",
+                  "@keyframes pulse": {
+                    "0%": {
+                      opacity: 0.7,
+                    },
+                    "50%": {
+                      opacity: 1,
+                    },
+                    "100%": {
+                      opacity: 0.7,
+                    }
+                  }
+                }}
+              />
             </Tooltip>
-            <IconButton color="inherit" aria-label="opțiuni">
+            <IconButton 
+              color="inherit" 
+              aria-label="opțiuni"
+              onClick={handleMenuOpen}
+            >
               <MoreVertIcon />
             </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              PaperProps={{
+                elevation: 3,
+                sx: { minWidth: 200 }
+              }}
+            >
+              <MenuItem onClick={toggleInfoDrawer}>
+                <ListItemIcon>
+                  <InfoIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">Informații conversație</Typography>
+              </MenuItem>
+              <MenuItem onClick={handleCopyKey}>
+                <ListItemIcon>
+                  <ContentCopyIcon fontSize="small" />
+                </ListItemIcon>
+                <Typography variant="body2">Copiază cheia de criptare</Typography>
+              </MenuItem>
+              <Divider />
+              <MenuItem sx={{ color: "error.main" }}>
+                <ListItemIcon>
+                  <DeleteIcon fontSize="small" color="error" />
+                </ListItemIcon>
+                <Typography variant="body2">Șterge conversația</Typography>
+              </MenuItem>
+            </Menu>
           </Box>
         </Toolbar>
       </AppBar>
 
       <Box sx={{ position: 'relative' }}>
-        <Box sx={{ 
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          py: 0.5,
-          zIndex: 5,
-          bgcolor: 'rgba(0, 0, 0, 0.03)'
-        }}>
-          <Tooltip title="Mesajele sunt criptate end-to-end">
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              fontSize: isMobile ? '0.7rem' : '0.8rem',
-              color: 'text.secondary',
-              px: 1,
-              borderRadius: 10,
-            }}>
-              <LockIcon sx={{ fontSize: isMobile ? '0.7rem' : '0.8rem', mr: 0.5 }} />
-              Conversație criptată
-            </Box>
-          </Tooltip>
-        </Box>
+        <Fade in={true}>
+          <Box sx={{ 
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            display: 'flex',
+            justifyContent: 'center',
+            py: 0.5,
+            zIndex: 5,
+            bgcolor: theme.palette.mode === 'dark' 
+              ? alpha(theme.palette.success.dark, 0.1) 
+              : alpha(theme.palette.success.light, 0.1)
+          }}>
+            <Tooltip title="Mesajele sunt criptate end-to-end">
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                fontSize: isMobile ? '0.7rem' : '0.8rem',
+                color: 'text.secondary',
+                px: 1,
+                borderRadius: 10,
+                "&:hover": {
+                  color: 'success.main',
+                  cursor: 'pointer'
+                }
+              }}
+              onClick={toggleInfoDrawer}
+              >
+                <LockIcon sx={{ fontSize: isMobile ? '0.7rem' : '0.8rem', mr: 0.5 }} />
+                Conversație criptată
+              </Box>
+            </Tooltip>
+          </Box>
+        </Fade>
       </Box>
       
-      <Box sx={{ 
-        flexGrow: 1, 
-        overflow: "auto", 
-        p: isMobile ? 1.5 : 2, 
-        display: "flex", 
-        flexDirection: "column",
-        bgcolor: "background.default",
-        mt: 3
-      }}>
+      <Box 
+        ref={messagesContainerRef}
+        sx={{ 
+          flexGrow: 1, 
+          overflow: "auto", 
+          p: isMobile ? 1.5 : 2, 
+          display: "flex", 
+          flexDirection: "column",
+          bgcolor: theme.palette.mode === 'dark' 
+            ? alpha(theme.palette.background.paper, 0.4) 
+            : theme.palette.background.default,
+          mt: 3,
+          position: "relative"
+        }}
+        onScroll={handleScroll}
+      >
+        {loadingMore && (
+          <Box sx={{ 
+            display: "flex", 
+            justifyContent: "center", 
+            py: 1,
+            position: "sticky",
+            top: 0,
+            zIndex: 10,
+            backgroundColor: alpha(theme.palette.background.paper, 0.7),
+            backdropFilter: "blur(4px)"
+          }}>
+            <CircularProgress size={24} thickness={4} />
+          </Box>
+        )}
+        
+        {!loading && !loadedAll && messages.length >= messagesLimit && (
+          <Box sx={{ 
+            display: "flex", 
+            justifyContent: "center", 
+            mb: 2 
+          }}>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={loadMoreMessages}
+              disabled={loadingMore}
+              sx={{ 
+                borderRadius: 4,
+                textTransform: "none",
+                fontSize: "0.8rem"
+              }}
+            >
+              {loadingMore ? "Se încarcă..." : "Încarcă mesaje mai vechi"}
+            </Button>
+          </Box>
+        )}
+        
         {loading ? (
-          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+          <Box sx={{ 
+            display: "flex", 
+            flexDirection: "column",
+            justifyContent: "center", 
+            alignItems: "center",
+            py: 4,
+            flex: 1
+          }}>
             <CircularProgress />
+            <Typography sx={{ mt: 2, color: "text.secondary" }}>
+              Se încarcă mesajele...
+            </Typography>
           </Box>
         ) : error ? (
           <Typography color="error" sx={{ textAlign: "center", my: 2 }}>
             {error}
           </Typography>
         ) : messages.length > 0 ? (
-          messages.map((message) => (
-            <Message
-              key={message.id}
-              message={message}
-              isOwn={message.senderId === currentUser.uid}
-              isMobile={isMobile}
-            />
-          ))
+          messages.map((message, index) => {
+            // Check if this message is from the same sender as the previous one
+            const prevMessage = index > 0 ? messages[index - 1] : null;
+            const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+            const isGroupedWithPrev = prevMessage && prevMessage.senderId === message.senderId;
+            const isGroupedWithNext = nextMessage && nextMessage.senderId === message.senderId;
+            
+            // Calculate time difference with the previous message
+            const timeGap = prevMessage 
+              ? (message.createdAt - prevMessage.createdAt) > 5 * 60 * 1000 // 5 minutes
+              : true;
+            
+            return (
+              <Message
+                key={message.id}
+                message={message}
+                isOwn={message.senderId === currentUser.uid}
+                isMobile={isMobile}
+                isGroupedWithPrev={isGroupedWithPrev && !timeGap}
+                isGroupedWithNext={isGroupedWithNext}
+                showAvatar={!isGroupedWithNext || !nextMessage}
+              />
+            );
+          })
         ) : (
-          <Typography 
+          <Box 
             sx={{ 
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
               textAlign: "center", 
               color: "text.secondary",
-              mt: 4 
+              mt: 4,
+              flex: 1
             }}
           >
-            Nicio conversație încă. Trimite primul mesaj!
-          </Typography>
+            <LockIcon sx={{ fontSize: 40, mb: 2, opacity: 0.6 }} />
+            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+              Nicio conversație încă
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 1, maxWidth: 300 }}>
+              Trimite primul mesaj pentru a începe o conversație criptată end-to-end cu {selectedUser?.displayName}
+            </Typography>
+          </Box>
         )}
         
         {/* Referință pentru derulare automată */}
@@ -317,6 +685,127 @@ const Chat = ({ selectedUser, onBack }) => {
 
       <Divider />
       <MessageInput onSendMessage={handleSendMessage} isMobile={isMobile} />
+
+      {/* Information Drawer */}
+      <SwipeableDrawer
+        anchor={isPortrait ? 'bottom' : 'right'}
+        open={infoOpen}
+        onClose={toggleInfoDrawer}
+        onOpen={toggleInfoDrawer}
+        disableSwipeToOpen
+        PaperProps={{
+          sx: {
+            width: isPortrait ? '100%' : 320,
+            maxHeight: isPortrait ? '70vh' : '100vh',
+            borderTopLeftRadius: isPortrait ? 16 : 0,
+            borderTopRightRadius: isPortrait ? 16 : 0,
+            boxShadow: 15
+          }
+        }}
+      >
+        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+          <IconButton edge="start" onClick={toggleInfoDrawer} sx={{ mr: 2 }}>
+            <ArrowBackIcon />
+          </IconButton>
+          <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
+            Detalii conversație
+          </Typography>
+        </Box>
+        <Box sx={{ p: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
+            <Avatar
+              src={selectedUser?.photoURL}
+              alt={selectedUser?.displayName}
+              sx={{ width: 80, height: 80, mb: 1.5 }}
+            >
+              {selectedUser?.displayName?.charAt(0) || "U"}
+            </Avatar>
+            <Typography variant="h6" align="center">
+              {selectedUser?.displayName}
+            </Typography>
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              mt: 0.5, 
+              bgcolor: selectedUser?.online ? 'success.main' : 'text.disabled',
+              color: 'white',
+              px: 1.5,
+              py: 0.3,
+              borderRadius: 10,
+              fontSize: '0.75rem'
+            }}>
+              {selectedUser?.online ? 'Online' : 'Offline'}
+            </Box>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+          
+          <Typography variant="subtitle2" color="primary" gutterBottom>
+            Securitate
+          </Typography>
+          <Box sx={{ 
+            bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.success.dark, 0.1) : alpha(theme.palette.success.light, 0.1),
+            p: 2,
+            borderRadius: 2,
+            mb: 3,
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 1.5
+          }}>
+            <LockIcon color="success" />
+            <Box>
+              <Typography variant="body2" fontWeight={500}>
+                Mesajele sunt criptate end-to-end
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Nimeni nu poate citi mesajele voastre în afară de voi, nici măcar noi.
+              </Typography>
+            </Box>
+          </Box>
+
+          <Typography variant="subtitle2" color="primary" gutterBottom>
+            Detalii utilizator
+          </Typography>
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Email
+            </Typography>
+            <Typography variant="body2">
+              {selectedUser?.email || 'Nedisponibil'}
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Ultima activitate
+            </Typography>
+            <Typography variant="body2">
+              {selectedUser?.lastActive ? formatDate(selectedUser.lastActive.toDate ? selectedUser.lastActive.toDate() : selectedUser.lastActive) : 'Necunoscut'}
+            </Typography>
+          </Box>
+          
+          <Typography variant="subtitle2" color="primary" gutterBottom>
+            Conversație
+          </Typography>
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" gutterBottom>
+              Număr mesaje
+            </Typography>
+            <Typography variant="body2">
+              {messages.length} mesaje
+            </Typography>
+          </Box>
+        </Box>
+      </SwipeableDrawer>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Paper>
   );
 };
