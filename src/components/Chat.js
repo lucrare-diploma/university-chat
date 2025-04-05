@@ -7,9 +7,16 @@ import {
   Avatar,
   AppBar,
   Toolbar,
-  IconButton
+  IconButton,
+  useTheme,
+  useMediaQuery,
+  Badge,
+  CircularProgress,
+  Tooltip
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import LockIcon from "@mui/icons-material/Lock";
 import { 
   collection, 
   query, 
@@ -28,9 +35,11 @@ import { encryptMessage, decryptMessage, generateChatKey } from "../utils/encryp
 const Chat = ({ selectedUser, onBack }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
-  const [error, setError] = useState(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [chatKey, setChatKey] = useState('');
 
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
@@ -160,40 +169,123 @@ const Chat = ({ selectedUser, onBack }) => {
     }
   };
 
+  const badgeStatus = selectedUser?.online ? "success" : "default";
+
   return (
-    <Paper sx={{ height: "100%", display: "flex", flexDirection: "column" }}>
-      <AppBar position="static" color="default" elevation={1}>
-        <Toolbar>
-          <IconButton edge="start" color="inherit" onClick={onBack} sx={{ mr: 2 }}>
+    <Paper 
+      sx={{ 
+        height: "100%", 
+        display: "flex", 
+        flexDirection: "column",
+        borderRadius: 0
+      }}
+      elevation={0}
+    >
+      <AppBar 
+        position="static" 
+        color="default" 
+        elevation={1}
+        sx={{
+          backgroundColor: "background.paper",
+          borderBottom: 1,
+          borderColor: "divider"
+        }}
+      >
+        <Toolbar sx={{ minHeight: isMobile ? 56 : 64 }}>
+          <IconButton 
+            edge="start" 
+            color="inherit" 
+            onClick={onBack} 
+            sx={{ mr: 2 }}
+            aria-label="înapoi"
+          >
             <ArrowBackIcon />
           </IconButton>
-          <Avatar 
-            src={selectedUser?.photoURL} 
-            alt={selectedUser?.displayName}
-            sx={{ mr: 2 }}
+          <Badge
+            overlap="circular"
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            variant="dot"
+            color={badgeStatus}
           >
-            {selectedUser?.displayName?.charAt(0) || "U"}
-          </Avatar>
-          <Typography variant="h6">{selectedUser?.displayName}</Typography>
-          <Box sx={{ ml: 1, display: 'flex', alignItems: 'center' }}>
-            <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-              🔒 Mesaje criptate
+            <Avatar 
+              src={selectedUser?.photoURL} 
+              alt={selectedUser?.displayName}
+              sx={{ 
+                mr: 2,
+                width: isMobile ? 40 : 48, 
+                height: isMobile ? 40 : 48
+              }}
+            >
+              {selectedUser?.displayName?.charAt(0) || "U"}
+            </Avatar>
+          </Badge>
+          <Box sx={{ flexGrow: 1 }}>
+            <Typography 
+              variant="h6"
+              sx={{ fontSize: isMobile ? "1rem" : "1.25rem" }}
+            >
+              {selectedUser?.displayName}
             </Typography>
+            <Typography 
+              variant="body2" 
+              color="text.secondary"
+              sx={{ fontSize: isMobile ? "0.75rem" : "0.875rem" }}
+            >
+              {selectedUser?.online ? "Online" : "Offline"}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <Tooltip title="Mesaje criptate end-to-end">
+              <LockIcon fontSize="small" color="success" sx={{ mr: 1 }} />
+            </Tooltip>
+            <IconButton color="inherit" aria-label="opțiuni">
+              <MoreVertIcon />
+            </IconButton>
           </Box>
         </Toolbar>
       </AppBar>
 
+      <Box sx={{ position: 'relative' }}>
+        <Box sx={{ 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          display: 'flex',
+          justifyContent: 'center',
+          py: 0.5,
+          zIndex: 5,
+          bgcolor: 'rgba(0, 0, 0, 0.03)'
+        }}>
+          <Tooltip title="Mesajele sunt criptate end-to-end">
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              fontSize: isMobile ? '0.7rem' : '0.8rem',
+              color: 'text.secondary',
+              px: 1,
+              borderRadius: 10,
+            }}>
+              <LockIcon sx={{ fontSize: isMobile ? '0.7rem' : '0.8rem', mr: 0.5 }} />
+              Conversație criptată
+            </Box>
+          </Tooltip>
+        </Box>
+      </Box>
+      
       <Box sx={{ 
         flexGrow: 1, 
         overflow: "auto", 
-        p: 2, 
+        p: isMobile ? 1.5 : 2, 
         display: "flex", 
-        flexDirection: "column"
+        flexDirection: "column",
+        bgcolor: "background.default",
+        mt: 3
       }}>
         {loading ? (
-          <Typography sx={{ textAlign: "center", my: 2 }}>
-            Se încarcă mesajele...
-          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress />
+          </Box>
         ) : error ? (
           <Typography color="error" sx={{ textAlign: "center", my: 2 }}>
             {error}
@@ -204,6 +296,7 @@ const Chat = ({ selectedUser, onBack }) => {
               key={message.id}
               message={message}
               isOwn={message.senderId === currentUser.uid}
+              isMobile={isMobile}
             />
           ))
         ) : (
@@ -223,7 +316,7 @@ const Chat = ({ selectedUser, onBack }) => {
       </Box>
 
       <Divider />
-      <MessageInput onSendMessage={handleSendMessage} />
+      <MessageInput onSendMessage={handleSendMessage} isMobile={isMobile} />
     </Paper>
   );
 };

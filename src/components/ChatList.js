@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Box, Grid, Drawer, useMediaQuery, useTheme } from "@mui/material";
+import { Box, Grid, Drawer, useMediaQuery, useTheme, Paper } from "@mui/material";
 import UserList from "./UserList";
 import Chat from "./Chat";
 
@@ -19,13 +19,25 @@ const ChatList = () => {
   const handleBack = () => {
     if (isMobile) {
       setMobileOpen(false);
+    } else {
+      setSelectedUser(null);
     }
   };
 
   if (isMobile) {
     return (
-      <Box sx={{ height: "calc(100vh - 64px)" }}>
-        <UserList setSelectedUser={handleSelectUser} />
+      <Box sx={{ height: "calc(100vh - 64px)", bgcolor: "background.default" }}>
+        {!mobileOpen && (
+          <Paper 
+            elevation={2} 
+            sx={{ 
+              height: "100%", 
+              borderRadius: 0 
+            }}
+          >
+            <UserList setSelectedUser={handleSelectUser} />
+          </Paper>
+        )}
         <Drawer
           anchor="right"
           open={mobileOpen}
@@ -48,13 +60,23 @@ const ChatList = () => {
   }
 
   return (
-    <Grid container sx={{ height: "calc(100vh - 64px)" }}>
-      <Grid item xs={3} sx={{ height: "100%" }}>
-        <UserList setSelectedUser={setSelectedUser} />
+    <Grid container sx={{ height: "calc(100vh - 64px)" }} spacing={0}>
+      <Grid item xs={12} sm={4} md={3} lg={3} sx={{ height: "100%" }}>
+        <Paper 
+          elevation={2} 
+          sx={{ 
+            height: "100%", 
+            borderRadius: 0,
+            borderRight: 1,
+            borderColor: 'divider'
+          }}
+        >
+          <UserList setSelectedUser={setSelectedUser} />
+        </Paper>
       </Grid>
-      <Grid item xs={9} sx={{ height: "100%" }}>
+      <Grid item xs={12} sm={8} md={9} lg={9} sx={{ height: "100%" }}>
         {selectedUser ? (
-          <Chat selectedUser={selectedUser} onBack={() => setSelectedUser(null)} />
+          <Chat selectedUser={selectedUser} onBack={handleBack} />
         ) : (
           <Box
             sx={{

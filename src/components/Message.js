@@ -1,8 +1,8 @@
 import React from "react";
 import { Box, Typography, Avatar, Paper, Tooltip } from "@mui/material";
-import LockIcon from "@mui/icons-material/Lock";
+import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 
-const Message = ({ message, isOwn }) => {
+const Message = ({ message, isOwn, isMobile }) => {
   // Formatul datei și orei pentru mesaje
   const formatTime = (date) => {
     if (!date) return "";
@@ -25,49 +25,96 @@ const Message = ({ message, isOwn }) => {
     }
   };
 
+  const avatarSize = isMobile ? 28 : 36;
+  const maxWidth = isMobile ? "85%" : "70%";
+
   return (
     <Box
       sx={{
         display: "flex",
         justifyContent: isOwn ? "flex-end" : "flex-start",
-        mb: 2
+        mb: 1.5,
+        px: 0.5
       }}
     >
       {!isOwn && (
         <Avatar
           src={message.senderPhoto}
           alt={message.senderName}
-          sx={{ mr: 1 }}
+          sx={{ 
+            mr: 1, 
+            width: avatarSize, 
+            height: avatarSize,
+            alignSelf: "flex-end",
+            mb: 0.5
+          }}
         >
           {message.senderName?.charAt(0) || "U"}
         </Avatar>
       )}
       <Paper
+        elevation={1}
         sx={{
-          p: 2,
-          maxWidth: "70%",
+          p: isMobile ? 1.5 : 2,
+          maxWidth: maxWidth,
           backgroundColor: isOwn ? "primary.light" : "background.paper",
           color: isOwn ? "white" : "inherit",
-          borderRadius: 2
+          borderRadius: 2,
+          borderTopRightRadius: isOwn ? 0 : 2,
+          borderTopLeftRadius: !isOwn ? 0 : 2,
+          wordBreak: "break-word"
         }}
       >
-        <Typography variant="body1">{message.text}</Typography>
-        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
-          <Typography variant="caption" sx={{ opacity: 0.7 }}>
+        <Typography 
+          variant="body1" 
+          sx={{ 
+            fontSize: isMobile ? "0.95rem" : "1rem",
+            whiteSpace: "pre-wrap"
+          }}
+        >
+          {message.text}
+        </Typography>
+        <Box 
+          sx={{ 
+            display: "flex", 
+            alignItems: "center",
+            justifyContent: isOwn ? "flex-end" : "flex-start",
+            mt: 0.5
+          }}
+        >
+          <Tooltip title="Mesaj criptat end-to-end">
+            <LockOutlinedIcon 
+              sx={{ 
+                fontSize: isMobile ? "0.6rem" : "0.7rem", 
+                mr: 0.5, 
+                opacity: 0.6,
+                color: isOwn ? "white" : "text.secondary"
+              }} 
+            />
+          </Tooltip>
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              opacity: 0.7,
+              fontSize: isMobile ? "0.65rem" : "0.75rem",
+              color: isOwn ? "white" : "text.secondary"
+            }}
+          >
             {formatTime(message.createdAt)}
           </Typography>
-          {message.encrypted && (
-            <Tooltip title="Mesaj criptat">
-              <LockIcon fontSize="small" sx={{ ml: 1, opacity: 0.7, width: 14, height: 14 }} />
-            </Tooltip>
-          )}
         </Box>
       </Paper>
       {isOwn && (
         <Avatar
           src={message.senderPhoto}
           alt={message.senderName}
-          sx={{ ml: 1 }}
+          sx={{ 
+            ml: 1, 
+            width: avatarSize, 
+            height: avatarSize,
+            alignSelf: "flex-end",
+            mb: 0.5
+          }}
         >
           {message.senderName?.charAt(0) || "U"}
         </Avatar>
