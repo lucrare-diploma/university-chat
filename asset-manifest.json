@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/university-chat/static/css/main.5165fa63.css",
-    "main.js": "/university-chat/static/js/main.04547b98.js",
+    "main.js": "/university-chat/static/js/main.f73672c8.js",
     "index.html": "/university-chat/index.html",
     "main.5165fa63.css.map": "/university-chat/static/css/main.5165fa63.css.map",
-    "main.04547b98.js.map": "/university-chat/static/js/main.04547b98.js.map"
+    "main.f73672c8.js.map": "/university-chat/static/js/main.f73672c8.js.map"
   },
   "entrypoints": [
     "static/css/main.5165fa63.css",
-    "static/js/main.04547b98.js"
+    "static/js/main.f73672c8.js"
   ]
 }
