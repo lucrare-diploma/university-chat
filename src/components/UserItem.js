@@ -232,25 +232,6 @@ const UserItem = ({ user, onSelect }) => {
             )}
           </Box>
 
-          {/* Message icon that appears on hover */}
-          <Box
-            className="message-icon"
-            sx={{
-              opacity: 0,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: theme.palette.primary.main,
-              transform: "translateX(10px)",
-              transition: "all 0.2s ease-in-out",
-              mr: 0.5
-            }}
-          >
-            <Tooltip title="Trimite mesaj">
-              <MessageIcon fontSize={isMobile ? "small" : "medium"} />
-            </Tooltip>
-          </Box>
-
           {/* Show email icon if email is verified */}
           {user.emailVerified && (
             <Tooltip title="Email verificat">
