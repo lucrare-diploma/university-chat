@@ -28,13 +28,13 @@ import LockIcon from "@mui/icons-material/Lock";
 import InfoIcon from "@mui/icons-material/Info";
 import DeleteIcon from "@mui/icons-material/Delete";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import { 
-  collection, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  addDoc, 
-  where, 
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  where,
   serverTimestamp,
   limit,
   getDocs,
@@ -63,7 +63,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const [loadedAll, setLoadedAll] = useState(false);
   const [messagesLimit, setMessagesLimit] = useState(20);
   const [touchStart, setTouchStart] = useState(null);
-  
+
   const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
@@ -105,7 +105,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
     const xDiff = touchStart.x - e.changedTouches[0].clientX;
     const yDiff = touchStart.y - e.changedTouches[0].clientY;
-    
+
     // Only register horizontal swipes that are more significant than vertical
     if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 70) {
       if (xDiff < 0) { // Swiped right
@@ -114,7 +114,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         onSwipe("left");
       }
     }
-    
+
     setTouchStart(null);
   };
 
@@ -132,11 +132,11 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   // Load more messages (for scrollback)
   const loadMoreMessages = async () => {
     if (loadingMore || loadedAll || !chatKey) return;
-    
+
     try {
       setLoadingMore(true);
       prevScrollHeightRef.current = messagesContainerRef.current?.scrollHeight || 0;
-      
+
       const chatId = getChatId();
       const messagesRef = collection(db, "messages");
       const q = query(
@@ -148,19 +148,19 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
       const snapshot = await getDocs(q);
       const messagesList = [];
-      
+
       snapshot.forEach((doc) => {
         const messageData = doc.data();
-        const createdAt = messageData.createdAt ? 
-          (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt) 
+        const createdAt = messageData.createdAt ?
+          (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt)
           : new Date();
-        
+
         // Decrypt the message text if it's encrypted
         let decryptedText = messageData.text;
         if (messageData.encrypted) {
           decryptedText = decryptMessage(messageData.text, chatKey);
         }
-          
+
         messagesList.push({
           id: doc.id,
           ...messageData,
@@ -168,7 +168,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           createdAt
         });
       });
-      
+
       setMessages(messagesList);
       setMessagesLimit(prevLimit => prevLimit + 20);
       setLoadedAll(messagesList.length < messagesLimit + 20);
@@ -177,7 +177,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       console.error("Error loading more messages:", error);
     } finally {
       setLoadingMore(false);
-      
+
       // Maintain scroll position after loading more messages
       setTimeout(() => {
         if (messagesContainerRef.current) {
@@ -192,15 +192,15 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   // Încarcă mesajele în timp real
   useEffect(() => {
     if (!selectedUser || !currentUser || !chatKey) return;
-    
+
     setLoading(true);
     setError(null);
-    
+
     try {
       console.log("Încărcare mesaje pentru conversația între", currentUser.uid, "și", selectedUser.id);
       const chatId = getChatId();
       console.log("Chat ID:", chatId);
-      
+
       const messagesRef = collection(db, "messages");
       const q = query(
         messagesRef,
@@ -213,20 +213,20 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         console.log("Snapshot de mesaje primit, număr:", snapshot.size);
         const messagesList = [];
-        
+
         snapshot.forEach((doc) => {
           const messageData = doc.data();
           // Verific dacă createdAt există și este un timestamp valid
-          const createdAt = messageData.createdAt ? 
-            (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt) 
+          const createdAt = messageData.createdAt ?
+            (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt)
             : new Date();
-          
+
           // Decrypt the message text if it's encrypted
           let decryptedText = messageData.text;
           if (messageData.encrypted) {
             decryptedText = decryptMessage(messageData.text, chatKey);
           }
-            
+
           messagesList.push({
             id: doc.id,
             ...messageData,
@@ -234,12 +234,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             createdAt
           });
         });
-        
+
         console.log("Mesaje procesate:", messagesList.length);
         setMessages(messagesList);
         setLoading(false);
         setLoadedAll(messagesList.length < messagesLimit);
-        
+
         // Derulează la ultimul mesaj după ce se încarcă
         setTimeout(scrollToBottom, 100);
       }, (err) => {
@@ -247,7 +247,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         setError("Nu s-au putut încărca mesajele: " + err.message);
         setLoading(false);
       });
-      
+
       return () => {
         console.log("Curățare listener mesaje");
         unsubscribe();
@@ -263,12 +263,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   useEffect(() => {
     const markMessagesAsRead = async () => {
       if (!selectedUser || !currentUser) return;
-      
+
       try {
         const chatId = getChatId();
         const batch = writeBatch(db);
         let unreadCount = 0;
-        
+
         // Obține mesajele necitite pentru această conversație
         const messagesRef = collection(db, "messages");
         const q = query(
@@ -277,32 +277,32 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           where("receiverId", "==", currentUser.uid),
           where("read", "==", false)
         );
-        
+
         const snapshot = await getDocs(q);
-        
+
         if (!snapshot.empty) {
           snapshot.forEach((doc) => {
-            batch.update(doc.ref, { 
+            batch.update(doc.ref, {
               read: true,
               readAt: serverTimestamp()
             });
             unreadCount++;
           });
-          
+
           // Execută actualizarea în batch
           await batch.commit();
           console.log(`${unreadCount} mesaje marcate ca citite`);
-          
+
           // Resetare contor mesaje necitite pentru acest utilizator
           if (unreadCount > 0) {
             const userUnreadCountsRef = doc(db, "userUnreadCounts", currentUser.uid);
             const userUnreadCountsDoc = await getDoc(userUnreadCountsRef);
-            
+
             if (userUnreadCountsDoc.exists()) {
               const countsData = userUnreadCountsDoc.data();
               const updatedCounts = { ...countsData };
               delete updatedCounts[selectedUser.id]; // Șterge contorul pentru acest utilizator
-              
+
               await setDoc(userUnreadCountsRef, updatedCounts);
             }
           }
@@ -311,7 +311,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         console.error("Eroare la marcarea mesajelor ca citite:", error);
       }
     };
-    
+
     markMessagesAsRead();
   }, [currentUser, selectedUser, getChatId]);
 
@@ -336,14 +336,14 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     try {
       const chatId = getChatId();
       console.log("Trimit mesaj criptat în chat ID:", chatId);
-      
+
       // Encrypt the message before saving to Firestore
       const encryptedText = encryptMessage(text, chatKey);
-      
+
       if (!encryptedText) {
         throw new Error("Encryption failed");
       }
-      
+
       // Adaugă mesajul în colecția de mesaje
       await addDoc(collection(db, "messages"), {
         text: encryptedText,
@@ -357,19 +357,19 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         read: false, // Marcăm inițial mesajul ca necitit
         delivered: true // Marcăm mesajul ca livrat
       });
-      
+
       // Incrementează contorul de mesaje necitite pentru destinatar
       const userUnreadCountsRef = doc(db, "userUnreadCounts", selectedUser.id);
-      
+
       try {
         // Verifică dacă documentul există
         const docSnap = await getDoc(userUnreadCountsRef);
-        
+
         if (docSnap.exists()) {
           // Actualizează contorul existent
           const countsData = docSnap.data();
           const currentCount = countsData[currentUser.uid] || 0;
-          
+
           await updateDoc(userUnreadCountsRef, {
             [currentUser.uid]: currentCount + 1
           });
@@ -382,7 +382,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       } catch (error) {
         console.error("Eroare la actualizarea contorului de mesaje necitite:", error);
       }
-      
+
       console.log("Mesaj criptat trimis cu succes");
       scrollToBottom("smooth");
     } catch (error) {
@@ -429,10 +429,10 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const badgeStatus = selectedUser?.online ? "success" : "default";
 
   return (
-    <Paper 
-      sx={{ 
-        height: "100%", 
-        display: "flex", 
+    <Paper
+      sx={{
+        height: "100%",
+        display: "flex",
         flexDirection: "column",
         borderRadius: 0,
         position: "relative",
@@ -443,12 +443,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <AppBar 
-        position="sticky" 
-        color="default" 
+      <AppBar
+        position="sticky"
+        color="primary"
         elevation={1}
         sx={{
-          backgroundColor: "background.paper",
+          backgroundColor: "primary.dark",
           borderBottom: 1,
           borderColor: "divider",
           zIndex: 10,
@@ -456,15 +456,16 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         }}
       >
         <Toolbar sx={{ minHeight: isMobile ? 56 : 64 }}>
-          <IconButton 
-            edge="start" 
-            color="inherit" 
-            onClick={onBack} 
-            sx={{ 
+          <IconButton
+            edge="start"
+            color="inherit"
+            onClick={onBack}
+            sx={{
               mr: 2,
               transition: "all 0.2s",
+              color: "white",
               "&:hover": {
-                backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                backgroundColor: alpha("#ffffff", 0.1)
               }
             }}
             aria-label="înapoi"
@@ -485,12 +486,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               }
             }}
           >
-            <Avatar 
-              src={selectedUser?.photoURL} 
+            <Avatar
+              src={selectedUser?.photoURL}
               alt={selectedUser?.displayName}
-              sx={{ 
+              sx={{
                 mr: 2,
-                width: isMobile ? 40 : 48, 
+                width: isMobile ? 40 : 48,
                 height: isMobile ? 40 : 48,
                 cursor: "pointer",
                 transition: "transform 0.2s ease",
@@ -503,9 +504,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               {selectedUser?.displayName?.charAt(0) || "U"}
             </Avatar>
           </Badge>
-          <Box 
-            sx={{ 
-              flexGrow: 1, 
+          <Box
+            sx={{
+              flexGrow: 1,
               cursor: "pointer",
               "&:hover": {
                 opacity: 0.8
@@ -513,44 +514,46 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             }}
             onClick={toggleInfoDrawer}
           >
-            <Typography 
+            <Typography
               variant="h6"
-              sx={{ 
+              sx={{
                 fontSize: isMobile ? "1rem" : "1.25rem",
-                fontWeight: 500
+                fontWeight: 500,
+                color: "white"
               }}
             >
               {selectedUser?.displayName}
             </Typography>
-            <Typography 
-              variant="body2" 
-              color="text.secondary"
-              sx={{ 
+            <Typography
+              variant="body2"
+              color="white"
+              sx={{
                 fontSize: isMobile ? "0.75rem" : "0.875rem",
                 display: "flex",
-                alignItems: "center"
+                alignItems: "center",
+                opacity: 0.85
               }}
             >
-              <Box 
-                sx={{ 
-                  width: 8, 
-                  height: 8, 
-                  borderRadius: "50%", 
+              <Box
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
                   bgcolor: selectedUser?.online ? "success.main" : "text.disabled",
                   mr: 0.5,
                   display: "inline-block"
-                }} 
+                }}
               />
               {selectedUser?.online ? "Online" : "Offline"}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Tooltip title="Mesaje criptate end-to-end">
-              <LockIcon 
-                fontSize="small" 
-                color="success" 
-                sx={{ 
+              <LockIcon
+                fontSize="small"
+                sx={{
                   mr: 1,
+                  color: "white",
                   animation: infoOpen ? "none" : "pulse 2s infinite",
                   "@keyframes pulse": {
                     "0%": {
@@ -566,10 +569,11 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 }}
               />
             </Tooltip>
-            <IconButton 
-              color="inherit" 
+            <IconButton
+              color="inherit"
               aria-label="opțiuni"
               onClick={handleMenuOpen}
+              sx={{ color: "white" }}
             >
               <MoreVertIcon />
             </IconButton>
@@ -610,7 +614,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
       <Box sx={{ position: 'relative' }}>
         <Fade in={true}>
-          <Box sx={{ 
+          <Box sx={{
             position: 'absolute',
             top: 0,
             left: 0,
@@ -619,14 +623,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             justifyContent: 'center',
             py: 0.5,
             zIndex: 5,
-            bgcolor: theme.palette.mode === 'dark' 
-              ? alpha(theme.palette.success.dark, 0.1) 
-              : alpha(theme.palette.success.light, 0.1)
+            bgcolor: alpha(theme.palette.success.light, 0.1)
           }}>
             <Tooltip title="Mesajele sunt criptate end-to-end">
-              <Box sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
                 fontSize: isMobile ? '0.7rem' : '0.8rem',
                 color: 'text.secondary',
                 px: 1,
@@ -636,7 +638,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                   cursor: 'pointer'
                 }
               }}
-              onClick={toggleInfoDrawer}
+                onClick={toggleInfoDrawer}
               >
                 <LockIcon sx={{ fontSize: isMobile ? '0.7rem' : '0.8rem', mr: 0.5 }} />
                 Conversație criptată
@@ -645,18 +647,16 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           </Box>
         </Fade>
       </Box>
-      
-      <Box 
+
+      <Box
         ref={messagesContainerRef}
-        sx={{ 
-          flexGrow: 1, 
-          overflow: "auto", 
-          p: isMobile ? 1.5 : 2, 
-          display: "flex", 
+        sx={{
+          flexGrow: 1,
+          overflow: "auto",
+          p: isMobile ? 1.5 : 2,
+          display: "flex",
           flexDirection: "column",
-          bgcolor: theme.palette.mode === 'dark' 
-            ? alpha(theme.palette.background.paper, 0.4) 
-            : theme.palette.background.default,
+          bgcolor: theme.palette.background.default,
           mt: 3,
           position: "relative",
           height: "calc(100% - 130px)" // Make room for header and input
@@ -664,9 +664,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         onScroll={handleScroll}
       >
         {loadingMore && (
-          <Box sx={{ 
-            display: "flex", 
-            justifyContent: "center", 
+          <Box sx={{
+            display: "flex",
+            justifyContent: "center",
             py: 1,
             position: "sticky",
             top: 0,
@@ -677,19 +677,19 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             <CircularProgress size={24} thickness={4} />
           </Box>
         )}
-        
+
         {!loading && !loadedAll && messages.length >= messagesLimit && (
-          <Box sx={{ 
-            display: "flex", 
-            justifyContent: "center", 
-            mb: 2 
+          <Box sx={{
+            display: "flex",
+            justifyContent: "center",
+            mb: 2
           }}>
             <Button
               variant="outlined"
               size="small"
               onClick={loadMoreMessages}
               disabled={loadingMore}
-              sx={{ 
+              sx={{
                 borderRadius: 4,
                 textTransform: "none",
                 fontSize: "0.8rem"
@@ -699,12 +699,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             </Button>
           </Box>
         )}
-        
+
         {loading ? (
-          <Box sx={{ 
-            display: "flex", 
+          <Box sx={{
+            display: "flex",
             flexDirection: "column",
-            justifyContent: "center", 
+            justifyContent: "center",
             alignItems: "center",
             py: 4,
             flex: 1
@@ -725,12 +725,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
             const isGroupedWithPrev = prevMessage && prevMessage.senderId === message.senderId;
             const isGroupedWithNext = nextMessage && nextMessage.senderId === message.senderId;
-            
+
             // Calculate time difference with the previous message
-            const timeGap = prevMessage 
+            const timeGap = prevMessage
               ? (message.createdAt - prevMessage.createdAt) > 5 * 60 * 1000 // 5 minutes
               : true;
-            
+
             return (
               <Message
                 key={message.id}
@@ -744,13 +744,13 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             );
           })
         ) : (
-          <Box 
-            sx={{ 
+          <Box
+            sx={{
               display: "flex",
               flexDirection: "column",
               justifyContent: "center",
               alignItems: "center",
-              textAlign: "center", 
+              textAlign: "center",
               color: "text.secondary",
               mt: 4,
               flex: 1
@@ -765,7 +765,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             </Typography>
           </Box>
         )}
-        
+
         {/* Referință pentru derulare automată */}
         <div ref={messagesEndRef} />
       </Box>
@@ -821,10 +821,10 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             <Typography variant="h6" align="center">
               {selectedUser?.displayName}
             </Typography>
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              mt: 0.5, 
+            <Box sx={{
+              display: 'flex',
+              alignItems: 'center',
+              mt: 0.5,
               bgcolor: selectedUser?.online ? 'success.main' : 'text.disabled',
               color: 'white',
               px: 1.5,
@@ -837,12 +837,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           </Box>
 
           <Divider sx={{ my: 2 }} />
-          
+
           <Typography variant="subtitle2" color="primary" gutterBottom>
             Securitate
           </Typography>
-          <Box sx={{ 
-            bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.success.dark, 0.1) : alpha(theme.palette.success.light, 0.1),
+          <Box sx={{
+            bgcolor: alpha(theme.palette.success.light, 0.1),
             p: 2,
             borderRadius: 2,
             mb: 3,
@@ -881,7 +881,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               {selectedUser?.lastActive ? formatDate(selectedUser.lastActive.toDate ? selectedUser.lastActive.toDate() : selectedUser.lastActive) : 'Necunoscut'}
             </Typography>
           </Box>
-          
+
           <Typography variant="subtitle2" color="primary" gutterBottom>
             Conversație
           </Typography>

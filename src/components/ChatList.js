@@ -10,7 +10,6 @@ import {
   Zoom,
   Slide,
   Collapse,
-  IconButton,
   Tooltip
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
@@ -141,7 +140,7 @@ const ChatList = () => {
           <Box sx={{ position: "fixed", bottom: 16, right: 16, zIndex: 1000 }}>
             <Tooltip title="Înapoi la lista de utilizatori">
               <Fab
-                color="secondary"
+                color="primary"
                 size={isSmall ? "medium" : "large"}
                 onClick={handleBack}
                 sx={{

@@ -19,13 +19,11 @@ import GoogleIcon from "@mui/icons-material/Google";
 import ChatIcon from "@mui/icons-material/Chat";
 import LockIcon from "@mui/icons-material/Lock";
 import SecurityIcon from "@mui/icons-material/Security";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
-import LightModeIcon from "@mui/icons-material/LightMode";
 import InfoIcon from "@mui/icons-material/Info";
 import { useAuth } from "../context/AuthContext";
 import logo from "../logo.svg";
 
-const Auth = ({ toggleColorMode, mode }) => {
+const Auth = () => {
   const { signInWithGoogle } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -59,32 +57,10 @@ const Auth = ({ toggleColorMode, mode }) => {
         minHeight: "100vh",
         backgroundColor: theme.palette.background.default,
         p: 2,
-        backgroundImage: mode === 'dark' 
-          ? "radial-gradient(circle at 50% 14em, #313131 0%, #0d0d0d 60%, #111 100%)"
-          : "radial-gradient(circle at 50% 14em, #f5f5f5 0%, #e0e0e0 60%, #f0f0f0 100%)",
+        backgroundImage: "radial-gradient(circle at 50% 14em, #f5f5f5 0%, #e0e0e0 60%, #f0f0f0 100%)",
         transition: "background-image 0.5s ease"
       }}
     >
-      {/* Theme toggle button in top-right corner */}
-      <Tooltip title={mode === 'dark' ? "Comută la modul deschis" : "Comută la modul întunecat"}>
-        <IconButton 
-          color="inherit" 
-          onClick={toggleColorMode} 
-          sx={{ 
-            position: 'absolute', 
-            top: 16, 
-            right: 16,
-            backgroundColor: theme.palette.background.paper,
-            boxShadow: 2,
-            '&:hover': {
-              backgroundColor: theme.palette.action.hover
-            }
-          }}
-        >
-          {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-        </IconButton>
-      </Tooltip>
-
       <Container maxWidth="xs">
         <Zoom in={true} timeout={800}>
           <Paper 
@@ -130,9 +106,7 @@ const Auth = ({ toggleColorMode, mode }) => {
                   fontSize: isMobile ? "1.75rem" : "2.125rem",
                   fontWeight: 600,
                   mb: 1,
-                  backgroundImage: mode === 'light' 
-                    ? 'linear-gradient(45deg, #3f51b5, #2196f3)' 
-                    : 'linear-gradient(45deg, #7986cb, #64b5f6)',
+                  backgroundImage: 'linear-gradient(45deg, #1e4b9b, #3378db)',
                   backgroundClip: 'text',
                   textFillColor: 'transparent',
                   WebkitBackgroundClip: 'text',
@@ -204,9 +178,11 @@ const Auth = ({ toggleColorMode, mode }) => {
                   fontWeight: 500,
                   boxShadow: 3,
                   transition: "all 0.3s ease",
+                  backgroundColor: "primary.main",
                   "&:hover": {
                     transform: "translateY(-3px)",
-                    boxShadow: 6
+                    boxShadow: 6,
+                    backgroundColor: "primary.dark"
                   },
                   "&:active": {
                     transform: "translateY(1px)"
@@ -252,7 +228,7 @@ const Auth = ({ toggleColorMode, mode }) => {
 
                 <Collapse in={showSecurityInfo}>
                   <Box sx={{ 
-                    bgcolor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+                    bgcolor: 'rgba(0,0,0,0.02)',
                     borderRadius: 1,
                     p: 1.5,
                     mb: 2

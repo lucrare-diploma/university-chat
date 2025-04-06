@@ -21,8 +21,6 @@ import {
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
-import DarkModeIcon from "@mui/icons-material/DarkMode";
-import LightModeIcon from "@mui/icons-material/LightMode";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import LockIcon from "@mui/icons-material/Lock";
 import InfoIcon from "@mui/icons-material/Info";
@@ -99,7 +97,7 @@ function useScrollTriggerFn(options = {}) {
 }
 
 // Componenta pentru layout-ul când utilizatorul este autentificat
-const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
+const AuthenticatedLayout = () => {
   const { currentUser, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -195,8 +193,8 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
         position="sticky"
         elevation={1}
         sx={{
-          bgcolor: "background.paper",
-          color: "text.primary",
+          bgcolor: "primary.dark",
+          color: "white",
           transition: "all 0.3s ease",
           height: isMobile ? '56px' : '64px',
           zIndex: theme.zIndex.drawer + 1
@@ -217,7 +215,7 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
               onClick={handleMenu}
               sx={{ 
                 mr: 1,
-                color: 'text.primary'
+                color: 'white'
               }}
             >
               <MenuIcon />
@@ -237,7 +235,7 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
             }}
           >
             <Badge
-              color="primary"
+              color="secondary"
               variant="dot"
               sx={{
                 "& .MuiBadge-badge": {
@@ -249,7 +247,7 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
               <LockIcon 
                 fontSize="small" 
                 sx={{ 
-                  color: 'primary.main',
+                  color: 'white',
                   animation: "pulse 2s infinite",
                   "@keyframes pulse": {
                     "0%": {
@@ -267,18 +265,6 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
             </Badge>
             USV Chat
           </Typography>
-          
-          {/* Theme toggle button */}
-          <Tooltip title={mode === 'dark' ? "Comută la modul deschis" : "Comută la modul întunecat"}>
-            <IconButton 
-              color="inherit" 
-              onClick={toggleColorMode} 
-              sx={{ ml: 1 }}
-              size={isMobile ? "small" : "medium"}
-            >
-              {mode === 'dark' ? <LightModeIcon /> : <DarkModeIcon />}
-            </IconButton>
-          </Tooltip>
 
           {isMobile ? (
             <Avatar 
@@ -295,7 +281,7 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
                   transform: "scale(1.05)"
                 },
                 border: 1,
-                borderColor: 'divider'
+                borderColor: 'rgba(255, 255, 255, 0.3)'
               }}
             >
               {currentUser?.displayName?.charAt(0) || "U"}
@@ -306,7 +292,8 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
                 variant="body1" 
                 sx={{ 
                   mr: 1, 
-                  display: { xs: 'none', sm: 'block' } 
+                  display: { xs: 'none', sm: 'block' },
+                  color: 'white'
                 }}
               >
                 {currentUser?.displayName}
@@ -323,7 +310,7 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
                     transform: "scale(1.05)"
                   },
                   border: 1,
-                  borderColor: 'divider'
+                  borderColor: 'rgba(255, 255, 255, 0.3)'
                 }}
               >
                 {currentUser?.displayName?.charAt(0) || "U"}
@@ -402,15 +389,6 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
               <Typography variant="body2">Profil</Typography>
             </MenuItem>
             
-            <MenuItem onClick={toggleColorMode}>
-              <ListItemIcon>
-                {mode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-              </ListItemIcon>
-              <Typography variant="body2">
-                {mode === 'dark' ? "Mod luminos" : "Mod întunecat"}
-              </Typography>
-            </MenuItem>
-            
             <MenuItem onClick={handleClose}>
               <ListItemIcon>
                 <InfoIcon fontSize="small" />
@@ -450,48 +428,39 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
 
 // Componenta principală
 const App = () => {
-  const [mode, setMode] = useState(() => {
-    // Check for saved preference or use system preference
-    const savedMode = localStorage.getItem('theme-mode');
-    if (savedMode) {
-      return savedMode;
-    }
-    // Check system preference
-    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches 
-      ? 'dark' 
-      : 'light';
-  });
-
-  // Toggle between light and dark modes
-  const toggleColorMode = () => {
-    setMode((prevMode) => {
-      const newMode = prevMode === 'light' ? 'dark' : 'light';
-      localStorage.setItem('theme-mode', newMode);
-      return newMode;
-    });
-  };
-
-  // Create theme based on current mode
+  // Crearea temei cu culorile USV
   const theme = createTheme({
     palette: {
-      mode,
+      // Culori preluate din site-ul USV.ro
       primary: {
-        main: mode === 'dark' ? '#7986cb' : '#3f51b5',
-        light: mode === 'dark' ? '#9fa8da' : '#757de8',
-        dark: mode === 'dark' ? '#5c6bc0' : '#002984',
+        main: '#1e4b9b', // Albastru USV principal
+        light: '#3378db', // Albastru deschis
+        dark: '#003073', // Albastru închis
+        contrastText: '#ffffff'
       },
       secondary: {
-        main: mode === 'dark' ? '#ff4081' : '#f50057',
-        light: mode === 'dark' ? '#ff79b0' : '#ff5983',
-        dark: mode === 'dark' ? '#c60055' : '#bb002f',
+        main: '#e9a825', // Galben USV
+        light: '#ffdf5d', // Galben deschis
+        dark: '#b27900', // Galben închis
+        contrastText: '#000000'
       },
       background: {
-        default: mode === 'dark' ? '#121212' : '#f5f5f5',
-        paper: mode === 'dark' ? '#1e1e1e' : '#ffffff',
+        default: '#f5f5f5',
+        paper: '#ffffff',
       },
       text: {
-        primary: mode === 'dark' ? '#e0e0e0' : '#121212',
-        secondary: mode === 'dark' ? '#a0a0a0' : '#666666',
+        primary: '#333333',
+        secondary: '#666666',
+      },
+      success: {
+        main: '#4caf50',
+        light: '#80e27e',
+        dark: '#087f23'
+      },
+      error: {
+        main: '#f44336',
+        light: '#ff7961',
+        dark: '#ba000d'
       }
     },
     typography: {
@@ -543,13 +512,13 @@ const App = () => {
               height: '8px',
             },
             '&::-webkit-scrollbar-track': {
-              background: mode === 'dark' ? '#2d2d2d' : '#f1f1f1',
+              background: '#f1f1f1',
             },
             '&::-webkit-scrollbar-thumb': {
-              backgroundColor: mode === 'dark' ? '#555' : '#888',
+              backgroundColor: '#888',
               borderRadius: '4px',
               '&:hover': {
-                background: mode === 'dark' ? '#777' : '#555',
+                background: '#555',
               },
             },
             '@media (max-width: 600px)': {
@@ -600,9 +569,7 @@ const App = () => {
       MuiAvatar: {
         styleOverrides: {
           root: {
-            boxShadow: mode === 'dark' 
-              ? '0 0 0 1px rgba(255,255,255,0.12)' 
-              : '0 0 0 1px rgba(0,0,0,0.12)',
+            boxShadow: '0 0 0 1px rgba(0,0,0,0.12)',
           },
         },
       },
@@ -612,20 +579,20 @@ const App = () => {
   return (
     <ThemeProvider theme={theme}>
       <AuthProvider>
-        <AppContent toggleColorMode={toggleColorMode} mode={mode} />
+        <AppContent />
       </AuthProvider>
     </ThemeProvider>
   );
 };
 
 // Conținut bazat pe starea autentificării
-const AppContent = ({ toggleColorMode, mode }) => {
+const AppContent = () => {
   const { currentUser } = useAuth();
 
   return currentUser ? (
-    <AuthenticatedLayout toggleColorMode={toggleColorMode} mode={mode} />
+    <AuthenticatedLayout />
   ) : (
-    <Auth toggleColorMode={toggleColorMode} mode={mode} />
+    <Auth />
   );
 };
 

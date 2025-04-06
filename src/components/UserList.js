@@ -246,7 +246,7 @@ const UserList = ({ setSelectedUser }) => {
         p: 3, 
         height: "100%" 
       }}>
-        <CircularProgress size={40} thickness={4} />
+        <CircularProgress size={40} thickness={4} color="primary" />
         <Typography variant="body2" sx={{ mt: 2, color: "text.secondary" }}>
           Se încarcă utilizatorii...
         </Typography>
@@ -269,7 +269,7 @@ const UserList = ({ setSelectedUser }) => {
         alignItems: "center",
         borderBottom: 1,
         borderColor: "divider",
-        bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.primary.dark, 0.1) : alpha(theme.palette.primary.light, 0.1)
+        bgcolor: alpha(theme.palette.primary.light, 0.1)
       }}>
         <Box>
           <Typography 
@@ -327,12 +327,12 @@ const UserList = ({ setSelectedUser }) => {
         py: 1.5, 
         borderBottom: 1, 
         borderColor: "divider",
-        bgcolor: theme.palette.background.paper
+        bgcolor: "background.paper"
       }}>
         <Box sx={{ 
           display: 'flex', 
           alignItems: 'center',
-          bgcolor: (theme) => alpha(theme.palette.common.black, 0.05),
+          bgcolor: alpha(theme.palette.common.black, 0.05),
           borderRadius: 2,
           px: 1,
           boxShadow: 'inset 0 0 2px rgba(0,0,0,0.1)'
@@ -446,7 +446,7 @@ const UserList = ({ setSelectedUser }) => {
       <Box sx={{ 
         flexGrow: 1, 
         overflow: "auto",
-        bgcolor: theme.palette.background.default,
+        bgcolor: "background.default",
         height: isMobile ? "calc(100% - 120px)" : "auto", // Ensure space for headers on mobile
         WebkitOverflowScrolling: "touch" // Improved inertial scrolling on iOS
       }}>

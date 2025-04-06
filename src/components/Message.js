@@ -117,7 +117,7 @@ const Message = ({
         <DoneAllIcon 
           sx={{ 
             fontSize: isMobile ? "0.7rem" : "0.8rem",
-            color: '#90EE90',
+            color: '#66ff00',
             opacity: 0.8
           }}
         />
