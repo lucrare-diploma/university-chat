@@ -30,6 +30,8 @@ import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase/config";
 import Auth from "./components/Auth";
 import ChatList from "./components/ChatList";
+import Profile from "./components/Profile";
+import About from "./components/About";
 
 // Back to top button
 function ScrollTop(props) {
@@ -103,6 +105,7 @@ const AuthenticatedLayout = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = useState(null);
+  const [currentView, setCurrentView] = useState('chat'); // 'chat', 'profile', 'about'
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -115,6 +118,11 @@ const AuthenticatedLayout = () => {
   const handleLogout = () => {
     handleClose();
     logout();
+  };
+
+  const handleViewChange = (view) => {
+    setCurrentView(view);
+    handleClose();
   };
 
   // Salvează informațiile utilizatorului în Firestore
@@ -172,6 +180,18 @@ const AuthenticatedLayout = () => {
     
     initializeUnreadMessagesDoc();
   }, [currentUser]);
+
+  const renderContent = () => {
+    switch(currentView) {
+      case 'profile':
+        return <Profile onBack={() => setCurrentView('chat')} />;
+      case 'about':
+        return <About onBack={() => setCurrentView('chat')} />;
+      case 'chat':
+      default:
+        return <ChatList />;
+    }
+  };
 
   return (
     <Box 
@@ -382,14 +402,14 @@ const AuthenticatedLayout = () => {
               </Box>
             </MenuItem>
             
-            <MenuItem onClick={handleClose}>
+            <MenuItem onClick={() => handleViewChange('profile')}>
               <ListItemIcon>
                 <AccountCircleIcon fontSize="small" />
               </ListItemIcon>
               <Typography variant="body2">Profil</Typography>
             </MenuItem>
             
-            <MenuItem onClick={handleClose}>
+            <MenuItem onClick={() => handleViewChange('about')}>
               <ListItemIcon>
                 <InfoIcon fontSize="small" />
               </ListItemIcon>
@@ -414,7 +434,7 @@ const AuthenticatedLayout = () => {
           height: isMobile ? 'calc(100% - 56px)' : 'calc(100% - 64px)'
         }}
       >
-        <ChatList />
+        {renderContent()}
       </Box>
       
       <ScrollTop>
