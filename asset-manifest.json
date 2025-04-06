@@ -1,14 +1,14 @@
 {
   "files": {
     "main.css": "/university-chat/static/css/main.5165fa63.css",
-    "main.js": "/university-chat/static/js/main.a24914cb.js",
+    "main.js": "/university-chat/static/js/main.cb8c148c.js",
     "static/media/logo.svg": "/university-chat/static/media/logo.dcf8ae3c058ba2bf139ee270285b11bc.svg",
     "index.html": "/university-chat/index.html",
     "main.5165fa63.css.map": "/university-chat/static/css/main.5165fa63.css.map",
-    "main.a24914cb.js.map": "/university-chat/static/js/main.a24914cb.js.map"
+    "main.cb8c148c.js.map": "/university-chat/static/js/main.cb8c148c.js.map"
   },
   "entrypoints": [
     "static/css/main.5165fa63.css",
-    "static/js/main.a24914cb.js"
+    "static/js/main.cb8c148c.js"
   ]
 }
