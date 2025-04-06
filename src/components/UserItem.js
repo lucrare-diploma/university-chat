@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import MessageIcon from "@mui/icons-material/Message";
 import EmailIcon from "@mui/icons-material/Email";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 
 const UserItem = ({ user, onSelect }) => {
   const theme = useTheme();
@@ -27,7 +28,6 @@ const UserItem = ({ user, onSelect }) => {
   
   // Status indicator - green dot for online
   const badgeStatus = user.online ? "success" : "default";
-  const statusText = user.online ? "Online" : "Offline";
 
   // Format time since last active
   const formatLastActive = () => {
@@ -53,6 +53,9 @@ const UserItem = ({ user, onSelect }) => {
     }
   };
 
+  // Determină dacă există mesaje necitite
+  const hasUnreadMessages = user.unreadCount && user.unreadCount > 0;
+
   return (
     <Zoom in={true} style={{ transitionDelay: '100ms' }}>
       <div>
@@ -67,7 +70,9 @@ const UserItem = ({ user, onSelect }) => {
             width: '100%',
             textAlign: 'left',
             border: 'none',
-            backgroundColor: 'transparent',
+            backgroundColor: hasUnreadMessages 
+              ? alpha(theme.palette.primary.main, 0.07)
+              : 'transparent',
             cursor: 'pointer',
             position: 'relative',
             overflow: 'hidden',
@@ -125,8 +130,9 @@ const UserItem = ({ user, onSelect }) => {
               variant="body1" 
               noWrap 
               sx={{ 
-                fontWeight: 500,
-                fontSize: isMobile ? "0.95rem" : "1rem"
+                fontWeight: hasUnreadMessages ? 600 : 500,
+                fontSize: isMobile ? "0.95rem" : "1rem",
+                color: hasUnreadMessages ? "primary.main" : "text.primary"
               }}
             >
               {user.displayName || "Utilizator"}
@@ -145,35 +151,34 @@ const UserItem = ({ user, onSelect }) => {
                 mt: 0.25
               }}
             >
-              {user.online && (
-                <Box 
-                  component="span" 
-                  sx={{ 
-                    display: "inline-block",
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    bgcolor: "success.main",
-                    mr: 0.8,
-                    animation: "pulse 2s infinite",
-                    "@keyframes pulse": {
-                      "0%": {
-                        boxShadow: "0 0 0 0 rgba(76, 175, 80, 0.4)"
-                      },
-                      "70%": {
-                        boxShadow: "0 0 0 6px rgba(76, 175, 80, 0)"
-                      },
-                      "100%": {
-                        boxShadow: "0 0 0 0 rgba(76, 175, 80, 0)"
-                      }
+              <Box 
+                component="span" 
+                sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  bgcolor: user.online ? "success.main" : "text.disabled",
+                  mr: 0.8,
+                  display: "inline-block",
+                  animation: user.online ? "pulse 2s infinite" : "none",
+                  "@keyframes pulse": {
+                    "0%": {
+                      boxShadow: "0 0 0 0 rgba(76, 175, 80, 0.4)"
+                    },
+                    "70%": {
+                      boxShadow: "0 0 0 6px rgba(76, 175, 80, 0)"
+                    },
+                    "100%": {
+                      boxShadow: "0 0 0 0 rgba(76, 175, 80, 0)"
                     }
-                  }} 
-                />
-              )}
+                  }
+                }} 
+              />
               {formatLastActive()}
             </Typography>
 
-            {user.unreadCount > 0 && (
+            {/* Unread message badge */}
+            {hasUnreadMessages && (
               <Box 
                 sx={{
                   position: "absolute",
@@ -185,23 +190,44 @@ const UserItem = ({ user, onSelect }) => {
                   justifyContent: "center"
                 }}
               >
-                <Box
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minWidth: 20,
-                    height: 20,
-                    borderRadius: 10,
-                    bgcolor: "primary.main",
-                    color: "white",
-                    fontSize: "0.75rem",
-                    fontWeight: "bold",
-                    px: 0.8
-                  }}
-                >
-                  {user.unreadCount}
-                </Box>
+                <Tooltip title={`${user.unreadCount} mesaje necitite`}>
+                  <Badge
+                    badgeContent={user.unreadCount}
+                    color="primary"
+                    sx={{
+                      "& .MuiBadge-badge": {
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        minWidth: 20,
+                        height: 20,
+                        animation: "pulse 2s infinite",
+                        "@keyframes pulse": {
+                          "0%": {
+                            opacity: 0.8,
+                            transform: "scale(1)"
+                          },
+                          "50%": {
+                            opacity: 1,
+                            transform: "scale(1.1)"
+                          },
+                          "100%": {
+                            opacity: 0.8,
+                            transform: "scale(1)"
+                          }
+                        }
+                      }
+                    }}
+                  >
+                    <NotificationsActiveIcon 
+                      fontSize="small" 
+                      color="primary" 
+                      sx={{ 
+                        fontSize: isMobile ? '1rem' : '1.1rem',
+                        opacity: 0.9
+                      }} 
+                    />
+                  </Badge>
+                </Tooltip>
               </Box>
             )}
           </Box>

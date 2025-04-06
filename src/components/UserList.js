@@ -10,11 +10,9 @@ import {
   InputBase,
   IconButton,
   alpha,
-  Paper,
   Fade,
   Zoom,
   Chip,
-  Divider,
   Tooltip,
   Button,
   Collapse
@@ -25,7 +23,7 @@ import FilterListIcon from "@mui/icons-material/FilterList";
 import ClearIcon from "@mui/icons-material/Clear";
 import PersonIcon from "@mui/icons-material/Person";
 import PeopleIcon from "@mui/icons-material/People";
-import { collection, query, getDocs, onSnapshot } from "firebase/firestore";
+import { collection, query, getDocs, onSnapshot, doc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import UserItem from "./UserItem";
@@ -39,6 +37,7 @@ const UserList = ({ setSelectedUser }) => {
   const [filter, setFilter] = useState("all"); // "all", "online", "offline"
   const [showFilters, setShowFilters] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState({});
   const searchInputRef = useRef(null);
   
   const { currentUser } = useAuth();
@@ -58,6 +57,47 @@ const UserList = ({ setSelectedUser }) => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  // Monitor unread messages for current user
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    try {
+      console.log("Monitorizez mesajele necitite...");
+      const unreadCountsRef = doc(db, "userUnreadCounts", currentUser.uid);
+      
+      const unsubscribe = onSnapshot(unreadCountsRef, (doc) => {
+        if (doc.exists()) {
+          const data = doc.data();
+          console.log("Date mesaje necitite actualizate:", data);
+          setUnreadCounts(data);
+        } else {
+          // Document doesn't exist yet
+          console.log("Nu există încă un document de mesaje necitite");
+          setUnreadCounts({});
+        }
+      }, (error) => {
+        console.error("Eroare la monitorizarea mesajelor necitite:", error);
+      });
+      
+      return () => unsubscribe();
+    } catch (error) {
+      console.error("Eroare la configurarea monitorului pentru mesaje necitite:", error);
+    }
+  }, [currentUser]);
+
+  // Update users with unread counts
+  useEffect(() => {
+    if (Object.keys(unreadCounts).length === 0 || users.length === 0) return;
+    
+    const updatedUsers = users.map(user => ({
+      ...user,
+      unreadCount: unreadCounts[user.id] || 0
+    }));
+    
+    setUsers(updatedUsers);
+    applyFilters(updatedUsers, searchTerm, filter);
+  }, [unreadCounts]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -81,7 +121,8 @@ const UserList = ({ setSelectedUser }) => {
           if (doc.id !== currentUser.uid) {
             usersList.push({
               id: doc.id,
-              ...userData
+              ...userData,
+              unreadCount: unreadCounts[doc.id] || 0 // Adăugăm numărul de mesaje necitite
             });
           }
         });
@@ -102,7 +143,7 @@ const UserList = ({ setSelectedUser }) => {
       setError("Eroare la configurarea încărcării utilizatorilor: " + error.message);
       setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, unreadCounts]);
 
   // Apply filters when search term or filter changes
   const applyFilters = (usersList, search, statusFilter) => {
@@ -121,6 +162,20 @@ const UserList = ({ setSelectedUser }) => {
     } else if (statusFilter === "offline") {
       result = result.filter(user => !user.online);
     }
+    
+    // Sort users with unread messages first, then by online status
+    result.sort((a, b) => {
+      // First sort by unread count (descending)
+      if ((a.unreadCount || 0) > (b.unreadCount || 0)) return -1;
+      if ((a.unreadCount || 0) < (b.unreadCount || 0)) return 1;
+      
+      // Then sort by online status
+      if (a.online && !b.online) return -1;
+      if (!a.online && b.online) return 1;
+      
+      // Then sort alphabetically
+      return a.displayName?.localeCompare(b.displayName || "");
+    });
     
     setFilteredUsers(result);
   };
@@ -147,7 +202,8 @@ const UserList = ({ setSelectedUser }) => {
         if (doc.id !== currentUser.uid) {
           usersList.push({
             id: doc.id,
-            ...doc.data()
+            ...doc.data(),
+            unreadCount: unreadCounts[doc.id] || 0 // Adăugăm numărul de mesaje necitite
           });
         }
       });
@@ -176,6 +232,9 @@ const UserList = ({ setSelectedUser }) => {
 
   // Count online users
   const onlineCount = users.filter(user => user.online).length;
+
+  // Count total unread messages
+  const totalUnread = Object.values(unreadCounts).reduce((total, count) => total + count, 0);
 
   if (loading) {
     return (
@@ -212,23 +271,41 @@ const UserList = ({ setSelectedUser }) => {
         borderColor: "divider",
         bgcolor: theme.palette.mode === 'dark' ? alpha(theme.palette.primary.dark, 0.1) : alpha(theme.palette.primary.light, 0.1)
       }}>
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            fontSize: isMobile ? "1.1rem" : "1.25rem",
-            fontWeight: 600,
-            color: "primary.main"
-          }}
-        >
-          Utilizatori
-          <Chip 
-            label={`${onlineCount} online`}
-            color="success"
-            size="small"
-            variant="outlined"
-            sx={{ ml: 1, fontSize: '0.7rem', height: 20 }}
-          />
-        </Typography>
+        <Box>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontSize: isMobile ? "1.1rem" : "1.25rem",
+              fontWeight: 600,
+              color: "primary.main",
+              display: "flex",
+              alignItems: "center"
+            }}
+          >
+            Utilizatori
+            <Chip 
+              label={`${onlineCount} online`}
+              color="success"
+              size="small"
+              variant="outlined"
+              sx={{ ml: 1, fontSize: '0.7rem', height: 20 }}
+            />
+            {totalUnread > 0 && (
+              <Chip
+                label={`${totalUnread} necitite`}
+                color="primary"
+                size="small"
+                variant="filled"
+                sx={{ 
+                  ml: 1, 
+                  fontSize: '0.7rem', 
+                  height: 20,
+                  fontWeight: 'bold'
+                }}
+              />
+            )}
+          </Typography>
+        </Box>
         <Tooltip title="Reîmprospătează lista">
           <IconButton 
             size="small" 

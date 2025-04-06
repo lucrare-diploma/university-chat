@@ -1,12 +1,12 @@
 import React, { useState } from "react";
-import { Box, Typography, Avatar, Paper, Tooltip, Menu, MenuItem, IconButton, Fade, ListItemIcon, alpha, Zoom } from "@mui/material";
+import { Box, Typography, Avatar, Paper, Tooltip, Menu, MenuItem, IconButton, ListItemIcon, alpha, Zoom } from "@mui/material";
 import LockOutlinedIcon from "@mui/icons-material/LockOutlined";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import ReplyIcon from "@mui/icons-material/Reply";
 import DoneAllIcon from "@mui/icons-material/DoneAll";
-import ScheduleIcon from "@mui/icons-material/Schedule";
+import DoneIcon from "@mui/icons-material/Done";
 import { useTheme } from "@mui/material/styles";
 
 const Message = ({ 
@@ -113,15 +113,24 @@ const Message = ({
   // Determine if we should show the message status
   const messageStatus = isOwn ? (
     message.delivered ? (
-      <DoneAllIcon 
-        sx={{ 
-          fontSize: isMobile ? "0.7rem" : "0.8rem",
-          color: message.read ? "primary.main" : "inherit",
-          opacity: 0.7
-        }}
-      />
+      message.read ? (
+        <DoneAllIcon 
+          sx={{ 
+            fontSize: isMobile ? "0.7rem" : "0.8rem",
+            color: '#90EE90',
+            opacity: 0.8
+          }}
+        />
+      ) : (
+        <DoneAllIcon 
+          sx={{ 
+            fontSize: isMobile ? "0.7rem" : "0.8rem", 
+            opacity: 0.7
+          }}
+        />
+      )
     ) : (
-      <ScheduleIcon 
+      <DoneIcon 
         sx={{ 
           fontSize: isMobile ? "0.7rem" : "0.8rem", 
           opacity: 0.7
@@ -129,6 +138,19 @@ const Message = ({
       />
     )
   ) : null;
+
+  // Tooltip text for message status
+  const getStatusText = () => {
+    if (!isOwn) return "";
+    
+    if (message.delivered) {
+      return message.read ? 
+        (message.readAt ? `Citit la ${formatFullDate(message.readAt.toDate ? message.readAt.toDate() : message.readAt)}` : "Citit") : 
+        "Livrat";
+    }
+    
+    return "Trimis";
+  };
 
   return (
     <Box
@@ -257,9 +279,11 @@ const Message = ({
               >
                 {formatTime(message.createdAt)}
                 {messageStatus && (
-                  <Box component="span" sx={{ ml: 0.5, display: "flex", alignItems: "center" }}>
-                    {messageStatus}
-                  </Box>
+                  <Tooltip title={getStatusText()}>
+                    <Box component="span" sx={{ ml: 0.5, display: "flex", alignItems: "center" }}>
+                      {messageStatus}
+                    </Box>
+                  </Tooltip>
                 )}
               </Typography>
             </Box>

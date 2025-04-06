@@ -4,8 +4,7 @@ import {
   CssBaseline, 
   AppBar, 
   Toolbar, 
-  Typography, 
-  Button, 
+  Typography,
   Avatar, 
   useTheme, 
   useMediaQuery,
@@ -18,7 +17,6 @@ import {
   Fab,
   Tooltip,
   Zoom,
-  alpha,
   Badge
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
@@ -30,11 +28,10 @@ import LockIcon from "@mui/icons-material/Lock";
 import InfoIcon from "@mui/icons-material/Info";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { AuthProvider, useAuth } from "./context/AuthContext";
-import { doc, setDoc, serverTimestamp } from "firebase/firestore";
+import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase/config";
 import Auth from "./components/Auth";
 import ChatList from "./components/ChatList";
-import { ref, onDisconnect, getDatabase } from "firebase/database";
 
 // Back to top button
 function ScrollTop(props) {
@@ -142,10 +139,6 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
             { merge: true }
           );
   
-          const unsubscribePresence = onDisconnect(
-            ref(getDatabase(), `status/${currentUser.uid}`)
-          ).set("offline");
-  
           console.log("Utilizatorul a fost salvat în Firestore");
         } catch (error) {
           console.error("Eroare la salvarea utilizatorului:", error);
@@ -158,6 +151,28 @@ const AuthenticatedLayout = ({ toggleColorMode, mode }) => {
     return () => {
       // Cleanup code if needed
     };
+  }, [currentUser]);
+
+  useEffect(() => {
+    const initializeUnreadMessagesDoc = async () => {
+      if (currentUser) {
+        try {
+          // Verificăm dacă documentul pentru mesaje necitite există deja
+          const userUnreadCountsRef = doc(db, "userUnreadCounts", currentUser.uid);
+          const docSnap = await getDoc(userUnreadCountsRef);
+          
+          if (!docSnap.exists()) {
+            // Dacă nu există, inițializăm un document gol
+            await setDoc(userUnreadCountsRef, {});
+            console.log("Document de mesaje necitite inițializat pentru utilizator");
+          }
+        } catch (error) {
+          console.error("Eroare la inițializarea documentului de mesaje necitite:", error);
+        }
+      }
+    };
+    
+    initializeUnreadMessagesDoc();
   }, [currentUser]);
 
   return (

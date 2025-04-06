@@ -13,13 +13,10 @@ import {
   Badge,
   CircularProgress,
   Tooltip,
-  Slide,
-  Zoom,
   Menu,
   MenuItem,
   ListItemIcon,
   Fade,
-  Alert,
   Snackbar,
   Button,
   alpha
@@ -30,7 +27,6 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import LockIcon from "@mui/icons-material/Lock";
 import InfoIcon from "@mui/icons-material/Info";
 import DeleteIcon from "@mui/icons-material/Delete";
-import PersonIcon from "@mui/icons-material/Person";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { 
   collection, 
@@ -41,7 +37,12 @@ import {
   where, 
   serverTimestamp,
   limit,
-  getDocs
+  getDocs,
+  updateDoc,
+  doc,
+  getDoc,
+  setDoc,
+  writeBatch
 } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
@@ -258,6 +259,62 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     }
   }, [currentUser, selectedUser, getChatId, chatKey, messagesLimit]);
 
+  // Marcarea mesajelor ca fiind citite când se deschide conversația
+  useEffect(() => {
+    const markMessagesAsRead = async () => {
+      if (!selectedUser || !currentUser) return;
+      
+      try {
+        const chatId = getChatId();
+        const batch = writeBatch(db);
+        let unreadCount = 0;
+        
+        // Obține mesajele necitite pentru această conversație
+        const messagesRef = collection(db, "messages");
+        const q = query(
+          messagesRef,
+          where("chatId", "==", chatId),
+          where("receiverId", "==", currentUser.uid),
+          where("read", "==", false)
+        );
+        
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          snapshot.forEach((doc) => {
+            batch.update(doc.ref, { 
+              read: true,
+              readAt: serverTimestamp()
+            });
+            unreadCount++;
+          });
+          
+          // Execută actualizarea în batch
+          await batch.commit();
+          console.log(`${unreadCount} mesaje marcate ca citite`);
+          
+          // Resetare contor mesaje necitite pentru acest utilizator
+          if (unreadCount > 0) {
+            const userUnreadCountsRef = doc(db, "userUnreadCounts", currentUser.uid);
+            const userUnreadCountsDoc = await getDoc(userUnreadCountsRef);
+            
+            if (userUnreadCountsDoc.exists()) {
+              const countsData = userUnreadCountsDoc.data();
+              const updatedCounts = { ...countsData };
+              delete updatedCounts[selectedUser.id]; // Șterge contorul pentru acest utilizator
+              
+              await setDoc(userUnreadCountsRef, updatedCounts);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Eroare la marcarea mesajelor ca citite:", error);
+      }
+    };
+    
+    markMessagesAsRead();
+  }, [currentUser, selectedUser, getChatId]);
+
   // Derulează automat la ultimul mesaj când se adaugă mesaje noi
   useEffect(() => {
     if (!loading && messages.length > 0) {
@@ -296,8 +353,35 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         senderName: currentUser.displayName || "Utilizator",
         senderPhoto: currentUser.photoURL,
         chatId,
-        createdAt: serverTimestamp() // Folosește serverTimestamp pentru consistență
+        createdAt: serverTimestamp(), // Folosește serverTimestamp pentru consistență
+        read: false, // Marcăm inițial mesajul ca necitit
+        delivered: true // Marcăm mesajul ca livrat
       });
+      
+      // Incrementează contorul de mesaje necitite pentru destinatar
+      const userUnreadCountsRef = doc(db, "userUnreadCounts", selectedUser.id);
+      
+      try {
+        // Verifică dacă documentul există
+        const docSnap = await getDoc(userUnreadCountsRef);
+        
+        if (docSnap.exists()) {
+          // Actualizează contorul existent
+          const countsData = docSnap.data();
+          const currentCount = countsData[currentUser.uid] || 0;
+          
+          await updateDoc(userUnreadCountsRef, {
+            [currentUser.uid]: currentCount + 1
+          });
+        } else {
+          // Creează documentul nou
+          await setDoc(userUnreadCountsRef, {
+            [currentUser.uid]: 1
+          });
+        }
+      } catch (error) {
+        console.error("Eroare la actualizarea contorului de mesaje necitite:", error);
+      }
       
       console.log("Mesaj criptat trimis cu succes");
       scrollToBottom("smooth");
