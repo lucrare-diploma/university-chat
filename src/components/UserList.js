@@ -443,12 +443,17 @@ const UserList = ({ setSelectedUser }) => {
         </Alert>
       )}
       
+      {/* This is the container that needs to be scrollable */}
       <Box sx={{ 
         flexGrow: 1, 
         overflow: "auto",
         bgcolor: "background.default",
-        height: isMobile ? "calc(100% - 120px)" : "auto", // Ensure space for headers on mobile
-        WebkitOverflowScrolling: "touch" // Improved inertial scrolling on iOS
+        height: isMobile ? "calc(100vh - 220px)" : "auto", // Fixed height calculation
+        position: "relative",
+        WebkitOverflowScrolling: "touch", // Improved inertial scrolling on iOS
+        // Add these touch-action properties to ensure mobile scrolling works
+        touchAction: "pan-y", 
+        msOverflowStyle: "-ms-autohiding-scrollbar", // IE/Edge support
       }}>
         <Fade in={!loading} timeout={500}>
           <List sx={{ p: 0 }}>
