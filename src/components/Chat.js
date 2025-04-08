@@ -23,6 +23,7 @@ import {
 } from "@mui/material";
 import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import MenuIcon from "@mui/icons-material/Menu";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import LockIcon from "@mui/icons-material/Lock";
 import InfoIcon from "@mui/icons-material/Info";
@@ -432,12 +433,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     <Paper
       sx={{
         height: "100%",
+        width: "100%",
         display: "flex",
         flexDirection: "column",
         borderRadius: 0,
         position: "relative",
         overflow: "hidden",
-        maxHeight: "100vh" // Added to ensure container doesn't overflow
       }}
       elevation={0}
       onTouchStart={handleTouchStart}
@@ -470,7 +471,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             }}
             aria-label="înapoi"
           >
-            <ArrowBackIcon />
+            {isMobile ? <ArrowBackIcon /> : <MenuIcon />}
           </IconButton>
           <Badge
             overlap="circular"

@@ -10,10 +10,12 @@ import {
   Zoom,
   Slide,
   Collapse,
-  Tooltip
+  Tooltip,
+  IconButton
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
 import CloseIcon from "@mui/icons-material/Close";
+import MenuIcon from "@mui/icons-material/Menu";
 import UserList from "./UserList";
 import Chat from "./Chat";
 import { useAuth } from "../context/AuthContext";
@@ -23,39 +25,43 @@ const ChatList = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showFab, setShowFab] = useState(false);
   const { currentUser } = useAuth();
 
-  // Toggle FAB visibility when mobile drawer is closed
+  // Toggle FAB visibility
   useEffect(() => {
     if (isMobile) {
-      setShowFab(!mobileOpen);
+      setShowFab(!sidebarOpen && selectedUser);
     } else {
       setShowFab(false);
     }
-  }, [isMobile, mobileOpen]);
+  }, [isMobile, sidebarOpen, selectedUser]);
 
   const handleSelectUser = (user) => {
     setSelectedUser(user);
-    if (isMobile) {
-      setMobileOpen(true);
-    }
+    setSidebarOpen(false);
   };
 
   const handleBack = () => {
     if (isMobile) {
-      setMobileOpen(false);
-    } else {
+      setSidebarOpen(true);
       setSelectedUser(null);
+    } else {
+      // Pe desktop, doar deschide sidebar-ul
+      setSidebarOpen(true);
     }
   };
 
-  // Close mobile drawer on escape key
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
+
+  // Close sidebar on escape key
   useEffect(() => {
     const handleEscKey = (event) => {
-      if (event.key === "Escape" && mobileOpen) {
-        handleBack();
+      if (event.key === "Escape" && sidebarOpen) {
+        setSidebarOpen(false);
       }
     };
 
@@ -63,158 +69,80 @@ const ChatList = () => {
     return () => {
       window.removeEventListener("keydown", handleEscKey);
     };
-  }, [mobileOpen]);
+  }, [sidebarOpen]);
 
   // Handle swipe to dismiss on mobile
   const handleSwipe = (direction) => {
-    if (direction === "right" && mobileOpen) {
-      handleBack();
+    if (direction === "right") {
+      // Swipe right deschide sidebar-ul
+      setSidebarOpen(true);
     }
   };
 
-  if (isMobile) {
-    return (
-      <Box sx={{ 
-        height: "calc(100vh - 56px)", // Adjusted for mobile header height
-        bgcolor: "background.default",
-        position: "relative",
-        overflow: "hidden"
-      }}>
-        <Collapse in={!mobileOpen} timeout={300} mountOnEnter unmountOnExit>
-          <Paper 
-            elevation={2} 
-            sx={{ 
-              height: "100%", 
-              borderRadius: 0,
-              overflow: "hidden",
-              display: "flex",
-              flexDirection: "column"
-            }}
-          >
-            <UserList setSelectedUser={handleSelectUser} />
-          </Paper>
-        </Collapse>
-
-        <Drawer
-          anchor="right"
-          open={mobileOpen}
-          onClose={handleBack}
-          sx={{
-            width: "100%",
-            height: "100%",
-            flexShrink: 0,
-            "& .MuiDrawer-paper": {
-              width: "100%",
-              height: "100%",
-              boxSizing: "border-box",
-              transition: "transform 0.3s ease-out",
-              overflow: "hidden" // Prevent content overflow
-            },
-          }}
-          SlideProps={{
-            direction: "left"
-          }}
-          disableScrollLock={false}
-          keepMounted
-        >
-          {selectedUser && (
-            <Slide direction="left" in={mobileOpen} mountOnEnter unmountOnExit>
-              <Box sx={{ 
-                height: "100%",
-                display: "flex",
-                flexDirection: "column",
-                overflow: "hidden"
-              }}>
-                <Chat 
-                  selectedUser={selectedUser} 
-                  onBack={handleBack} 
-                  onSwipe={handleSwipe}
-                />
-              </Box>
-            </Slide>
-          )}
-        </Drawer>
-
-        {/* Add FAB to quickly return to user list on mobile */}
-        <Zoom in={showFab && selectedUser}>
-          <Box sx={{ position: "fixed", bottom: 16, right: 16, zIndex: 1000 }}>
-            <Tooltip title="Înapoi la lista de utilizatori">
-              <Fab
-                color="primary"
-                size={isSmall ? "medium" : "large"}
-                onClick={handleBack}
-                sx={{
-                  boxShadow: 4,
-                  "&:hover": {
-                    transform: "scale(1.05)"
-                  }
-                }}
-              >
-                <CloseIcon />
-              </Fab>
-            </Tooltip>
-          </Box>
-        </Zoom>
-      </Box>
-    );
-  }
+  // Componentă pentru butonul de meniu (pentru a deschide lista de conversații)
+  const MenuButton = () => (
+    <IconButton
+      onClick={toggleSidebar}
+      sx={{
+        position: 'absolute',
+        left: 10,
+        top: 10,
+        zIndex: 1200,
+        bgcolor: 'background.paper',
+        boxShadow: 2,
+        '&:hover': {
+          bgcolor: 'background.paper',
+          opacity: 0.9
+        }
+      }}
+    >
+      <MenuIcon />
+    </IconButton>
+  );
 
   return (
-    <Grid 
-      container 
-      sx={{ 
-        height: "calc(100vh - 64px)",
-        overflow: "hidden",
-        transition: "all 0.3s ease"
-      }} 
-      spacing={0}
-    >
-      <Grid 
-        item 
-        xs={12} 
-        sm={4} 
-        md={3} 
-        lg={3} 
-        sx={{ 
-          height: "100%",
-          transition: "all 0.3s ease",
-          display: "flex",
-          flexDirection: "column",
-          borderRight: 1,
-          borderColor: 'divider'
+    <Box sx={{ 
+      height: isMobile ? "calc(100vh - 56px)" : "calc(100vh - 64px)",
+      bgcolor: "background.default",
+      position: "relative",
+      overflow: "hidden"
+    }}>
+      {/* Drawer pentru lista de conversații (afișat când este deschis) */}
+      <Drawer
+        anchor="left"
+        open={sidebarOpen}
+        onClose={toggleSidebar}
+        sx={{
+          '& .MuiDrawer-paper': {
+            width: isMobile ? '100%' : 350,
+            height: '100%',
+            boxSizing: 'border-box',
+          },
         }}
       >
-        <Paper 
-          elevation={2} 
-          sx={{ 
-            height: "100%", 
-            borderRadius: 0,
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden"
-          }}
-        >
-          <UserList setSelectedUser={setSelectedUser} />
-        </Paper>
-      </Grid>
-      <Grid 
-        item 
-        xs={12} 
-        sm={8} 
-        md={9} 
-        lg={9} 
+        <Box sx={{ height: '100%' }}>
+          <UserList setSelectedUser={handleSelectUser} />
+        </Box>
+      </Drawer>
+
+      {/* Conținutul principal - mereu vizibil */}
+      <Box 
         sx={{ 
-          height: "100%",
-          transition: "all 0.3s ease"
+          height: '100%',
+          width: '100%',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
+        {/* Afișează chat-ul dacă există un utilizator selectat */}
         {selectedUser ? (
-          <Slide direction="left" in={!!selectedUser} mountOnEnter unmountOnExit>
-            <div style={{ height: '100%' }}>
-              <Chat selectedUser={selectedUser} onBack={handleBack} />
-            </div>
-          </Slide>
+          <Chat 
+            selectedUser={selectedUser} 
+            onBack={handleBack}
+            onSwipe={handleSwipe}
+          />
         ) : (
+          // Ecran de start când nu e selectat niciun chat
           <Box
             sx={{
               display: "flex",
@@ -222,38 +150,73 @@ const ChatList = () => {
               justifyContent: "center",
               alignItems: "center",
               height: "100%",
-              bgcolor: "background.default",
-              p: 3
+              bgcolor: "background.paper",
+              p: 3,
+              textAlign: 'center'
             }}
           >
             <ChatIcon 
               sx={{ 
-                fontSize: 60, 
+                fontSize: 80, 
                 color: 'primary.main', 
                 opacity: 0.7,
                 mb: 2
               }} 
             />
             <Zoom in={true} style={{ transitionDelay: '250ms' }}>
-              <Box sx={{ textAlign: 'center' }}>
-                <Box 
+              <Box sx={{ maxWidth: 400 }}>
+                <Paper
+                  elevation={3}
                   sx={{ 
-                    p: 2, 
-                    borderRadius: 2, 
-                    bgcolor: 'background.paper',
-                    boxShadow: 1,
-                    maxWidth: 400,
-                    mx: 'auto'
+                    p: 3, 
+                    borderRadius: 2,
+                    bgcolor: 'background.default',
+                    boxShadow: 3,
                   }}
                 >
-                  Selectează un utilizator din lista din stânga pentru a începe o conversație
-                </Box>
+                  <Box sx={{ mb: 2 }}>
+                    Selectează o conversație pentru a începe
+                  </Box>
+                  <Fab
+                    color="primary"
+                    variant="extended"
+                    size="medium"
+                    onClick={toggleSidebar}
+                  >
+                    <MenuIcon sx={{ mr: 1 }} />
+                    Deschide conversațiile
+                  </Fab>
+                </Paper>
               </Box>
             </Zoom>
           </Box>
         )}
-      </Grid>
-    </Grid>
+      </Box>
+
+      {/* Buton de meniu - apare doar când sidebar-ul este închis și avem un chat deschis */}
+      {!sidebarOpen && selectedUser && !isMobile && <MenuButton />}
+
+      {/* FAB pentru a reveni la lista de utilizatori (pe mobil) */}
+      <Zoom in={showFab}>
+        <Box sx={{ position: "fixed", bottom: 16, right: 16, zIndex: 1000 }}>
+          <Tooltip title="Înapoi la lista de utilizatori">
+            <Fab
+              color="primary"
+              size={isSmall ? "medium" : "large"}
+              onClick={handleBack}
+              sx={{
+                boxShadow: 4,
+                "&:hover": {
+                  transform: "scale(1.05)"
+                }
+              }}
+            >
+              <CloseIcon />
+            </Fab>
+          </Tooltip>
+        </Box>
+      </Zoom>
+    </Box>
   );
 };
 
