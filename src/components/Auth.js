@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   Box, 
   Button, 
@@ -22,20 +22,40 @@ import SecurityIcon from "@mui/icons-material/Security";
 import InfoIcon from "@mui/icons-material/Info";
 import { useAuth } from "../context/AuthContext";
 import logo from "../logo.svg";
+import { isAllowedEmail } from "../utils/accessControl";
 
-const Auth = () => {
-  const { signInWithGoogle } = useAuth();
+const Auth = ({ initialError }) => {
+  const { signInWithGoogle, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError || "");
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+
+  useEffect(() => {
+    if (initialError) {
+      setError(initialError);
+    }
+  }, [initialError]);
 
   const handleSignIn = async () => {
     try {
       setLoading(true);
       setError("");
-      await signInWithGoogle();
+      
+      // Autentificare cu Google
+      const result = await signInWithGoogle();
+      
+      // Verificăm dacă emailul aparține domeniilor permise
+      if (result && result.user && result.user.email) {
+        const email = result.user.email.toLowerCase();
+        
+        if (!isAllowedEmail(email)) {
+          // Deconectăm utilizatorul și afișăm eroare
+          await logout();
+          setError("Acces permis doar pentru adrese de email din domeniile usv.ro sau usm.ro.");
+        }
+      }
     } catch (error) {
       console.error("Eroare la autentificare:", error);
       setError("Nu s-a putut realiza conectarea. Vă rugăm încercați din nou.");
@@ -191,6 +211,16 @@ const Auth = () => {
               >
                 {loading ? "Se conectează..." : "Conectare cu Google"}
               </Button>
+              
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  mt: 2,
+                  color: "text.secondary"
+                }}
+              >
+                * Doar pentru utilizatorii cu adresă de email instituțională USV sau USM
+              </Typography>
               
               <Box sx={{ 
                 mt: 3, 

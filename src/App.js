@@ -17,7 +17,9 @@ import {
   Fab,
   Tooltip,
   Zoom,
-  Badge
+  Badge,
+  CircularProgress,
+  Alert
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -33,36 +35,23 @@ import ChatList from "./components/ChatList";
 import Profile from "./components/Profile";
 import About from "./components/About";
 
-// Back to top button
-function ScrollTop(props) {
-  const { children } = props;
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-  const trigger = useScrollTriggerFn({
-    disableHysteresis: true,
-    threshold: 100,
-    disabled: isMobile // Pass as a prop instead of conditional hook usage
-  });
-
-  const handleClick = (event) => {
-    const anchor = document.querySelector('#back-to-top-anchor');
-    if (anchor) {
-      anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  };
-
-  return (
-    <Zoom in={trigger}>
-      <Box
-        onClick={handleClick}
-        role="presentation"
-        sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 99 }}
-      >
-        {children}
-      </Box>
-    </Zoom>
+// Funcții utilitare pentru verificarea accesului (încorporate direct în App.js)
+const isAllowedEmail = (email) => {
+  if (!email) return false;
+  
+  const emailLower = email.toLowerCase();
+  const allowedDomains = ["usv.ro", "usm.ro"];
+  
+  // Verificare pentru @domain.ro sau @student.domain.ro
+  return allowedDomains.some(domain => 
+    emailLower.endsWith(`@${domain}`) || 
+    emailLower.includes(`@student.${domain}`)
   );
-}
+};
+
+const getUnauthorizedMessage = () => {
+  return "Acces permis doar pentru adrese de email din domeniile usv.ro sau usm.ro.";
+};
 
 // Helper function to detect scroll position
 function useScrollTriggerFn(options = {}) {
@@ -98,8 +87,39 @@ function useScrollTriggerFn(options = {}) {
   return trigger;
 }
 
+// Back to top button component
+function ScrollTop(props) {
+  const { children } = props;
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const trigger = useScrollTriggerFn({
+    disableHysteresis: true,
+    threshold: 100,
+    disabled: isMobile
+  });
+
+  const handleClick = (event) => {
+    const anchor = document.querySelector('#back-to-top-anchor');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  return (
+    <Zoom in={trigger}>
+      <Box
+        onClick={handleClick}
+        role="presentation"
+        sx={{ position: 'fixed', bottom: 16, right: 16, zIndex: 99 }}
+      >
+        {children}
+      </Box>
+    </Zoom>
+  );
+}
+
 // Componenta pentru layout-ul când utilizatorul este autentificat
-const AuthenticatedLayout = () => {
+function AuthenticatedLayout() {
   const { currentUser, logout } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -444,10 +464,61 @@ const AuthenticatedLayout = () => {
       </ScrollTop>
     </Box>
   );
-};
+}
 
-// Componenta principală
-const App = () => {
+// Conținut bazat pe starea autentificării cu verificare de acces
+function AppContent() {
+  const { currentUser, logout } = useAuth();
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [accessError, setAccessError] = useState(null);
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      if (currentUser && currentUser.email) {
+        // Verifică dacă emailul aparține domeniilor permise
+        const hasAccess = isAllowedEmail(currentUser.email);
+        if (!hasAccess) {
+          // Dacă emailul nu este permis, setăm eroarea și deconectăm utilizatorul
+          setAccessError(getUnauthorizedMessage());
+          await logout();
+        }
+      }
+      setAccessChecked(true);
+    };
+    
+    checkAccess();
+  }, [currentUser, logout]);
+
+  // Afișăm un indicator de încărcare în timp ce verificăm accesul
+  if (currentUser && !accessChecked) {
+    return (
+      <Box sx={{ 
+        display: "flex", 
+        flexDirection: "column",
+        justifyContent: "center", 
+        alignItems: "center", 
+        height: "100vh",
+        p: 3,
+        gap: 2
+      }}>
+        <CircularProgress size={40} />
+        <Typography variant="body1" color="text.secondary">
+          Se verifică accesul...
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Afișăm pagina de autentificare cu mesajul de eroare dacă există
+  return currentUser ? (
+    <AuthenticatedLayout />
+  ) : (
+    <Auth initialError={accessError} />
+  );
+}
+
+// Componenta principală App
+function App() {
   // Crearea temei cu culorile USV
   const theme = createTheme({
     palette: {
@@ -603,17 +674,6 @@ const App = () => {
       </AuthProvider>
     </ThemeProvider>
   );
-};
-
-// Conținut bazat pe starea autentificării
-const AppContent = () => {
-  const { currentUser } = useAuth();
-
-  return currentUser ? (
-    <AuthenticatedLayout />
-  ) : (
-    <Auth />
-  );
-};
+}
 
 export default App;

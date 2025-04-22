@@ -13,12 +13,14 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Autentificare cu Google
+  // Autentificare cu Google - returnează rezultatul pentru a putea accesa emailul în Auth.js
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      return result;
     } catch (error) {
       console.error("Eroare la autentificare:", error);
+      throw error;
     }
   };
 
