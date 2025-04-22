@@ -113,18 +113,20 @@ const UserList = ({ setSelectedUser }) => {
         console.log("Snapshot primit, număr documente:", querySnapshot.size);
         
         const usersList = [];
+        
+        // Adaugă utilizatorul curent la listă
         querySnapshot.forEach((doc) => {
           const userData = doc.data();
-          console.log("Document utilizator:", doc.id, userData);
           
-          // Exclude utilizatorul curent
-          if (doc.id !== currentUser.uid) {
-            usersList.push({
-              id: doc.id,
-              ...userData,
-              unreadCount: unreadCounts[doc.id] || 0 // Adăugăm numărul de mesaje necitite
-            });
-          }
+          // Adaugă și utilizatorul curent și îl marchează corespunzător
+          const isCurrentUser = doc.id === currentUser.uid;
+          usersList.push({
+            id: doc.id,
+            ...userData,
+            unreadCount: unreadCounts[doc.id] || 0,
+            isCurrentUser: isCurrentUser,  // Marchează utilizatorul curent
+            displayName: isCurrentUser ? `${userData.displayName || currentUser.displayName} (Tu)` : userData.displayName || "Utilizator"
+          });
         });
         
         console.log("Lista de utilizatori actualizată:", usersList);
@@ -163,9 +165,13 @@ const UserList = ({ setSelectedUser }) => {
       result = result.filter(user => !user.online);
     }
     
-    // Sort users with unread messages first, then by online status
+    // Sort users with unread messages first, then by online status, but place current user at the top
     result.sort((a, b) => {
-      // First sort by unread count (descending)
+      // First sort current user to the top
+      if (a.isCurrentUser) return -1;
+      if (b.isCurrentUser) return 1;
+      
+      // Then sort by unread count (descending)
       if ((a.unreadCount || 0) > (b.unreadCount || 0)) return -1;
       if ((a.unreadCount || 0) < (b.unreadCount || 0)) return 1;
       
@@ -198,14 +204,17 @@ const UserList = ({ setSelectedUser }) => {
       
       const usersList = [];
       querySnapshot.forEach((doc) => {
-        // Exclude utilizatorul curent
-        if (doc.id !== currentUser.uid) {
-          usersList.push({
-            id: doc.id,
-            ...doc.data(),
-            unreadCount: unreadCounts[doc.id] || 0 // Adăugăm numărul de mesaje necitite
-          });
-        }
+        const userData = doc.data();
+        
+        // Adaugă și utilizatorul curent și îl marchează corespunzător
+        const isCurrentUser = doc.id === currentUser.uid;
+        usersList.push({
+          id: doc.id,
+          ...userData,
+          unreadCount: unreadCounts[doc.id] || 0,
+          isCurrentUser: isCurrentUser,  // Marchează utilizatorul curent
+          displayName: isCurrentUser ? `${userData.displayName || currentUser.displayName} (Tu)` : userData.displayName || "Utilizator"
+        });
       });
       
       setUsers(usersList);

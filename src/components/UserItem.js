@@ -11,11 +11,13 @@ import {
   useMediaQuery,
   Tooltip,
   alpha,
-  Zoom
+  Zoom,
+  Chip
 } from "@mui/material";
 import MessageIcon from "@mui/icons-material/Message";
 import EmailIcon from "@mui/icons-material/Email";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import PersonIcon from "@mui/icons-material/Person";
 
 const UserItem = ({ user, onSelect }) => {
   const theme = useTheme();
@@ -55,6 +57,9 @@ const UserItem = ({ user, onSelect }) => {
 
   // Determină dacă există mesaje necitite
   const hasUnreadMessages = user.unreadCount && user.unreadCount > 0;
+  
+  // Determină dacă utilizatorul este utilizatorul curent
+  const isCurrentUser = user.isCurrentUser;
 
   return (
     <Zoom in={true} style={{ transitionDelay: '100ms' }}>
@@ -70,14 +75,18 @@ const UserItem = ({ user, onSelect }) => {
             width: '100%',
             textAlign: 'left',
             border: 'none',
-            backgroundColor: hasUnreadMessages 
-              ? alpha(theme.palette.primary.main, 0.07)
-              : 'transparent',
+            backgroundColor: isCurrentUser 
+              ? alpha(theme.palette.primary.main, 0.1)
+              : hasUnreadMessages 
+                ? alpha(theme.palette.primary.main, 0.07)
+                : 'transparent',
             cursor: 'pointer',
             position: 'relative',
             overflow: 'hidden',
             "&:hover": {
-              backgroundColor: alpha(theme.palette.primary.main, 0.08),
+              backgroundColor: isCurrentUser
+                ? alpha(theme.palette.primary.main, 0.15)
+                : alpha(theme.palette.primary.main, 0.08),
               transform: "translateY(-2px)",
               boxShadow: "0 4px 10px rgba(0,0,0,0.05)"
             },
@@ -113,7 +122,9 @@ const UserItem = ({ user, onSelect }) => {
                 sx={{ 
                   width: isMobile ? 40 : 48, 
                   height: isMobile ? 40 : 48,
-                  boxShadow: `0 0 0 1px ${alpha(theme.palette.divider, 0.1)}`,
+                  boxShadow: isCurrentUser 
+                    ? `0 0 0 2px ${theme.palette.primary.main}` 
+                    : `0 0 0 1px ${alpha(theme.palette.divider, 0.1)}`,
                   transition: "all 0.2s ease",
                   "&:hover": {
                     transform: "scale(1.05)"
@@ -126,17 +137,35 @@ const UserItem = ({ user, onSelect }) => {
           </ListItemAvatar>
           
           <Box sx={{ ml: 1.5, flex: 1, minWidth: 0 }}>
-            <Typography 
-              variant="body1" 
-              noWrap 
-              sx={{ 
-                fontWeight: hasUnreadMessages ? 600 : 500,
-                fontSize: isMobile ? "0.95rem" : "1rem",
-                color: hasUnreadMessages ? "primary.main" : "text.primary"
-              }}
-            >
-              {user.displayName || "Utilizator"}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography 
+                variant="body1" 
+                noWrap 
+                sx={{ 
+                  fontWeight: isCurrentUser ? 600 : hasUnreadMessages ? 600 : 500,
+                  fontSize: isMobile ? "0.95rem" : "1rem",
+                  color: isCurrentUser ? "primary.main" : hasUnreadMessages ? "primary.main" : "text.primary"
+                }}
+              >
+                {user.displayName || "Utilizator"}
+              </Typography>
+              
+              {isCurrentUser && (
+                <Chip
+                  label="Tu"
+                  size="small"
+                  color="primary"
+                  variant="outlined"
+                  sx={{ 
+                    ml: 1, 
+                    height: 20, 
+                    fontSize: '0.7rem', 
+                    fontWeight: 'bold',
+                    display: { xs: 'none', sm: 'flex' }
+                  }}
+                />
+              )}
+            </Box>
             
             <Typography
               variant="body2"
@@ -227,6 +256,22 @@ const UserItem = ({ user, onSelect }) => {
                       }} 
                     />
                   </Badge>
+                </Tooltip>
+              </Box>
+            )}
+            
+            {isCurrentUser && (
+              <Box 
+                sx={{
+                  position: "absolute",
+                  top: "50%",
+                  right: 35,
+                  transform: "translateY(-50%)",
+                  display: { xs: 'flex', sm: 'none' }
+                }}
+              >
+                <Tooltip title="Este contul tău">
+                  <PersonIcon color="primary" fontSize="small" />
                 </Tooltip>
               </Box>
             )}
