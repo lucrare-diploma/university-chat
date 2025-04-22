@@ -73,11 +73,20 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isPortrait = useMediaQuery('(orientation: portrait)');
 
+  // Verifică dacă utilizatorul actual este întro conversație cu sine
+  const isSelfChat = selectedUser?.id === currentUser?.uid;
+
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
   const getChatId = useCallback(() => {
+    // Pentru chat cu sine folosim un format special
+    if (isSelfChat) {
+      return `self_${currentUser.uid}`;
+    }
+    
+    // Pentru chat-ul normal între doi utilizatori
     const ids = [currentUser.uid, selectedUser.id].sort();
     return `${ids[0]}_${ids[1]}`;
-  }, [currentUser, selectedUser]);
+  }, [currentUser, selectedUser, isSelfChat]);
 
   // Generate encryption key for this chat when users are selected
   useEffect(() => {
@@ -264,6 +273,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   useEffect(() => {
     const markMessagesAsRead = async () => {
       if (!selectedUser || !currentUser) return;
+      
+      // Dacă este chat cu sine, nu e necesar să marcăm mesajele ca fiind citite
+      if (isSelfChat) return;
 
       try {
         const chatId = getChatId();
@@ -314,7 +326,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     };
 
     markMessagesAsRead();
-  }, [currentUser, selectedUser, getChatId]);
+  }, [currentUser, selectedUser, getChatId, isSelfChat]);
 
   // Derulează automat la ultimul mesaj când se adaugă mesaje noi
   useEffect(() => {
@@ -345,43 +357,48 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         throw new Error("Encryption failed");
       }
 
+      // În cazul conversației cu sine, expeditorul și destinatarul sunt aceeași persoană
+      const receiverId = isSelfChat ? currentUser.uid : selectedUser.id;
+
       // Adaugă mesajul în colecția de mesaje
       await addDoc(collection(db, "messages"), {
         text: encryptedText,
         encrypted: true, // Flag that indicates this message is encrypted
         senderId: currentUser.uid,
-        receiverId: selectedUser.id,
+        receiverId: receiverId,
         senderName: currentUser.displayName || "Utilizator",
         senderPhoto: currentUser.photoURL,
         chatId,
         createdAt: serverTimestamp(), // Folosește serverTimestamp pentru consistență
-        read: false, // Marcăm inițial mesajul ca necitit
+        read: isSelfChat, // Marcăm deja ca citit dacă este chat cu sine
         delivered: true // Marcăm mesajul ca livrat
       });
 
-      // Incrementează contorul de mesaje necitite pentru destinatar
-      const userUnreadCountsRef = doc(db, "userUnreadCounts", selectedUser.id);
+      // Incrementează contorul de mesaje necitite pentru destinatar doar dacă nu e chat cu sine
+      if (!isSelfChat) {
+        const userUnreadCountsRef = doc(db, "userUnreadCounts", receiverId);
 
-      try {
-        // Verifică dacă documentul există
-        const docSnap = await getDoc(userUnreadCountsRef);
+        try {
+          // Verifică dacă documentul există
+          const docSnap = await getDoc(userUnreadCountsRef);
 
-        if (docSnap.exists()) {
-          // Actualizează contorul existent
-          const countsData = docSnap.data();
-          const currentCount = countsData[currentUser.uid] || 0;
+          if (docSnap.exists()) {
+            // Actualizează contorul existent
+            const countsData = docSnap.data();
+            const currentCount = countsData[currentUser.uid] || 0;
 
-          await updateDoc(userUnreadCountsRef, {
-            [currentUser.uid]: currentCount + 1
-          });
-        } else {
-          // Creează documentul nou
-          await setDoc(userUnreadCountsRef, {
-            [currentUser.uid]: 1
-          });
+            await updateDoc(userUnreadCountsRef, {
+              [currentUser.uid]: currentCount + 1
+            });
+          } else {
+            // Creează documentul nou
+            await setDoc(userUnreadCountsRef, {
+              [currentUser.uid]: 1
+            });
+          }
+        } catch (error) {
+          console.error("Eroare la actualizarea contorului de mesaje necitite:", error);
         }
-      } catch (error) {
-        console.error("Eroare la actualizarea contorului de mesaje necitite:", error);
       }
 
       console.log("Mesaj criptat trimis cu succes");
@@ -429,6 +446,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
   const badgeStatus = selectedUser?.online ? "success" : "default";
 
+  // Text pentru titlul conversației
+  const chatTitle = isSelfChat ? "Notițe personale" : selectedUser?.displayName;
+
   return (
     <Paper
       sx={{
@@ -449,7 +469,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         color="primary"
         elevation={1}
         sx={{
-          backgroundColor: "primary.dark",
+          backgroundColor: isSelfChat ? "success.dark" : "primary.dark",
           borderBottom: 1,
           borderColor: "divider",
           zIndex: 10,
@@ -523,7 +543,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 color: "white"
               }}
             >
-              {selectedUser?.displayName}
+              {chatTitle}
             </Typography>
             <Typography
               variant="body2"
@@ -545,7 +565,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                   display: "inline-block"
                 }}
               />
-              {selectedUser?.online ? "Online" : "Offline"}
+              {isSelfChat ? "Doar tu poți vedea aceste mesaje" : selectedUser?.online ? "Online" : "Offline"}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -642,7 +662,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 onClick={toggleInfoDrawer}
               >
                 <LockIcon sx={{ fontSize: isMobile ? '0.7rem' : '0.8rem', mr: 0.5 }} />
-                Conversație criptată
+                {isSelfChat ? "Conversație privată" : "Conversație criptată"}
               </Box>
             </Tooltip>
           </Box>
@@ -759,10 +779,14 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           >
             <LockIcon sx={{ fontSize: 40, mb: 2, opacity: 0.6 }} />
             <Typography variant="body1" sx={{ fontWeight: 500 }}>
-              Nicio conversație încă
+              {isSelfChat 
+                ? "Notițele tale vor apărea aici" 
+                : "Nicio conversație încă"}
             </Typography>
             <Typography variant="body2" sx={{ mt: 1, maxWidth: 300 }}>
-              Trimite primul mesaj pentru a începe o conversație criptată end-to-end cu {selectedUser?.displayName}
+              {isSelfChat 
+                ? "Trimite un mesaj pentru a crea notițe personale criptate end-to-end" 
+                : `Trimite primul mesaj pentru a începe o conversație criptată end-to-end cu ${selectedUser?.displayName}`}
             </Typography>
           </Box>
         )}
@@ -820,21 +844,23 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               {selectedUser?.displayName?.charAt(0) || "U"}
             </Avatar>
             <Typography variant="h6" align="center">
-              {selectedUser?.displayName}
+              {isSelfChat ? "Notițe personale" : selectedUser?.displayName}
             </Typography>
-            <Box sx={{
-              display: 'flex',
-              alignItems: 'center',
-              mt: 0.5,
-              bgcolor: selectedUser?.online ? 'success.main' : 'text.disabled',
-              color: 'white',
-              px: 1.5,
-              py: 0.3,
-              borderRadius: 10,
-              fontSize: '0.75rem'
-            }}>
-              {selectedUser?.online ? 'Online' : 'Offline'}
-            </Box>
+            {!isSelfChat && (
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                mt: 0.5,
+                bgcolor: selectedUser?.online ? 'success.main' : 'text.disabled',
+                color: 'white',
+                px: 1.5,
+                py: 0.3,
+                borderRadius: 10,
+                fontSize: '0.75rem'
+              }}>
+                {selectedUser?.online ? 'Online' : 'Offline'}
+              </Box>
+            )}
           </Box>
 
           <Divider sx={{ my: 2 }} />
@@ -854,34 +880,42 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             <LockIcon color="success" />
             <Box>
               <Typography variant="body2" fontWeight={500}>
-                Mesajele sunt criptate end-to-end
+                {isSelfChat 
+                  ? "Mesajele sunt criptate end-to-end" 
+                  : "Mesajele sunt criptate end-to-end"}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Nimeni nu poate citi mesajele voastre în afară de voi, nici măcar noi.
+                {isSelfChat 
+                  ? "Doar tu poți citi aceste notițe." 
+                  : "Nimeni nu poate citi mesajele voastre în afară de voi, nici măcar noi."}
               </Typography>
             </Box>
           </Box>
 
-          <Typography variant="subtitle2" color="primary" gutterBottom>
-            Detalii utilizator
-          </Typography>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Email
-            </Typography>
-            <Typography variant="body2">
-              {selectedUser?.email || 'Nedisponibil'}
-            </Typography>
-          </Box>
+          {!isSelfChat && (
+            <>
+              <Typography variant="subtitle2" color="primary" gutterBottom>
+                Detalii utilizator
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Email
+                </Typography>
+                <Typography variant="body2">
+                  {selectedUser?.email || 'Nedisponibil'}
+                </Typography>
+              </Box>
 
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
-              Ultima activitate
-            </Typography>
-            <Typography variant="body2">
-              {selectedUser?.lastActive ? formatDate(selectedUser.lastActive.toDate ? selectedUser.lastActive.toDate() : selectedUser.lastActive) : 'Necunoscut'}
-            </Typography>
-          </Box>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Ultima activitate
+                </Typography>
+                <Typography variant="body2">
+                  {selectedUser?.lastActive ? formatDate(selectedUser.lastActive.toDate ? selectedUser.lastActive.toDate() : selectedUser.lastActive) : 'Necunoscut'}
+                </Typography>
+              </Box>
+            </>
+          )}
 
           <Typography variant="subtitle2" color="primary" gutterBottom>
             Conversație
