@@ -14,7 +14,8 @@ import {
   Slide,
   Collapse,
   Button,
-  alpha
+  alpha,
+  Chip
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
@@ -24,6 +25,10 @@ import MicIcon from "@mui/icons-material/Mic";
 import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
 import KeyboardIcon from "@mui/icons-material/Keyboard";
 import CloseIcon from "@mui/icons-material/Close";
+import { db } from "../firebase/config";
+import { useAuth } from "../context/AuthContext";
+import { doc, getDoc } from "firebase/firestore";
+import { generateSuggestions, applySuggestion } from "../utils/suggestionUtils";
 
 // Common emojis for quick access
 const COMMON_EMOJIS = [
@@ -39,9 +44,48 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [recording, setRecording] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [suggestionEnabled, setSuggestionEnabled] = useState(true);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const theme = useTheme();
+  const { currentUser } = useAuth();
+
+  // Fetch user preferences (including suggestion setting)
+  useEffect(() => {
+    const fetchUserPreferences = async () => {
+      if (currentUser) {
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.suggestionEnabled !== undefined) {
+              setSuggestionEnabled(userData.suggestionEnabled);
+            }
+          }
+        } catch (error) {
+          console.error("Eroare la obținerea preferințelor utilizatorului:", error);
+        }
+      }
+    };
+
+    fetchUserPreferences();
+  }, [currentUser]);
+
+  // Update suggestions when message changes
+  useEffect(() => {
+    if (suggestionEnabled && message.trim() !== '') {
+      const newSuggestions = generateSuggestions(message);
+      setSuggestions(newSuggestions);
+      setShowSuggestions(newSuggestions.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [message, suggestionEnabled]);
 
   useEffect(() => {
     // Auto focus input on component mount
@@ -74,6 +118,16 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
 
   // Handler pentru tasta Enter
   const handleKeyDown = (e) => {
+    // Selectează o sugestie folosind tastele 1, 2, 3
+    if (showSuggestions && suggestions.length > 0 && e.altKey) {
+      const suggestionIndex = parseInt(e.key) - 1;
+      if (suggestionIndex >= 0 && suggestionIndex < suggestions.length) {
+        e.preventDefault();
+        handleSuggestionClick(suggestions[suggestionIndex]);
+        return;
+      }
+    }
+    
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
@@ -99,6 +153,13 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
   // Add emoji to message
   const addEmoji = (emoji) => {
     setMessage(prev => prev + emoji);
+    inputRef.current?.focus();
+  };
+
+  // Handle suggestion click
+  const handleSuggestionClick = (suggestion) => {
+    const newText = applySuggestion(message, suggestion);
+    setMessage(newText);
     inputRef.current?.focus();
   };
 
@@ -218,178 +279,242 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
           </IconButton>
         </Box>
       ) : (
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          {!isMobile && (
-            <IconButton 
-              sx={{ mr: 1 }} 
-              color={showAttachOptions ? "primary" : "default"}
-              onClick={handleAttachClick}
-            >
-              <AttachFileIcon />
-            </IconButton>
-          )}
-          <TextField
-            fullWidth
-            variant="outlined"
-            placeholder="Scrie un mesaj criptat..."
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onKeyDown={handleKeyDown}
-            inputRef={inputRef}
-            multiline
-            maxRows={3}
-            size={isMobile ? "small" : "medium"}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Tooltip title="Mesajele sunt criptate end-to-end">
-                    <LockIcon 
-                      fontSize="small" 
-                      color="success" 
-                      sx={{ 
-                        opacity: 0.7,
-                        animation: message.length > 0 ? "none" : "pulse 2s infinite",
-                        "@keyframes pulse": {
-                          "0%": {
-                            opacity: 0.5,
-                          },
-                          "50%": {
-                            opacity: 1,
-                          },
-                          "100%": {
-                            opacity: 0.5,
-                          }
-                        }
-                      }} 
-                    />
-                  </Tooltip>
-                </InputAdornment>
-              ),
-              endAdornment: isMobile ? (
-                <InputAdornment position="end">
-                  <IconButton 
-                    color={showAttachOptions ? "primary" : "default"} 
-                    size="small"
-                    onClick={handleAttachClick}
-                  >
-                    <AttachFileIcon fontSize="small" />
-                  </IconButton>
-                </InputAdornment>
-              ) : (
-                <InputAdornment position="end">
-                  <IconButton 
-                    color={showEmojiPicker ? "primary" : "default"} 
-                    size="small"
-                    onClick={handleEmojiClick}
-                  >
-                    <EmojiEmotionsIcon />
-                  </IconButton>
-                </InputAdornment>
-              )
-            }}
-            sx={{ 
-              mr: 1,
-              "& .MuiOutlinedInput-root": {
-                borderRadius: 3,
-                fontSize: isMobile ? "0.95rem" : "1rem",
-                transition: "all 0.2s ease",
-                "&.Mui-focused": {
-                  boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`
-                }
-              },
-              "& .MuiInputBase-inputMultiline": {
-                // Limit the height of multiline input on mobile to avoid keyboard issues
-                maxHeight: isMobile ? "80px" : "120px",
-              }
-            }}
-            autoFocus
-          />
-          
-          {message.trim() ? (
-            <Zoom in={!!message.trim()}>
+        <Box sx={{ display: "flex", alignItems: "center", flexDirection: "column", width: "100%" }}>
+          {/* Text input */}
+          <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
+            {!isMobile && (
               <IconButton 
-                color="primary" 
-                type="submit" 
-                disabled={!message.trim() || sending}
+                sx={{ mr: 1 }} 
+                color={showAttachOptions ? "primary" : "default"}
+                onClick={handleAttachClick}
+              >
+                <AttachFileIcon />
+              </IconButton>
+            )}
+            
+            <TextField
+              fullWidth
+              variant="outlined"
+              placeholder="Scrie un mesaj criptat..."
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              inputRef={inputRef}
+              multiline
+              maxRows={3}
+              size={isMobile ? "small" : "medium"}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Tooltip title="Mesajele sunt criptate end-to-end">
+                      <LockIcon 
+                        fontSize="small" 
+                        color="success" 
+                        sx={{ 
+                          opacity: 0.7,
+                          animation: message.length > 0 ? "none" : "pulse 2s infinite",
+                          "@keyframes pulse": {
+                            "0%": {
+                              opacity: 0.5,
+                            },
+                            "50%": {
+                              opacity: 1,
+                            },
+                            "100%": {
+                              opacity: 0.5,
+                            }
+                          }
+                        }} 
+                      />
+                    </Tooltip>
+                  </InputAdornment>
+                ),
+                endAdornment: isMobile ? (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      color={showAttachOptions ? "primary" : "default"} 
+                      size="small"
+                      onClick={handleAttachClick}
+                    >
+                      <AttachFileIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ) : (
+                  <InputAdornment position="end">
+                    <IconButton 
+                      color={showEmojiPicker ? "primary" : "default"} 
+                      size="small"
+                      onClick={handleEmojiClick}
+                    >
+                      <EmojiEmotionsIcon />
+                    </IconButton>
+                  </InputAdornment>
+                )
+              }}
+              sx={{ 
+                mr: 1,
+                "& .MuiOutlinedInput-root": {
+                  borderRadius: 3,
+                  fontSize: isMobile ? "0.95rem" : "1rem",
+                  transition: "all 0.2s ease",
+                  "&.Mui-focused": {
+                    boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`
+                  }
+                },
+                "& .MuiInputBase-inputMultiline": {
+                  // Limit the height of multiline input on mobile to avoid keyboard issues
+                  maxHeight: isMobile ? "80px" : "120px",
+                }
+              }}
+              autoFocus
+            />
+            
+            {message.trim() ? (
+              <Zoom in={!!message.trim()}>
+                <IconButton 
+                  color="primary" 
+                  type="submit" 
+                  disabled={!message.trim() || sending}
+                  size={isMobile ? "medium" : "large"}
+                  sx={{
+                    backgroundColor: message.trim() && !sending ? "primary.main" : "action.disabledBackground",
+                    color: "white",
+                    "&:hover": {
+                      backgroundColor: "primary.dark",
+                    },
+                    width: isMobile ? 40 : 48,
+                    height: isMobile ? 40 : 48,
+                    transition: "all 0.2s ease",
+                    boxShadow: 2,
+                    "&:hover": {
+                      transform: "translateY(-2px)",
+                      boxShadow: 3
+                    },
+                    "&:active": {
+                      transform: "translateY(0)",
+                    }
+                  }}
+                >
+                  {sending ? <CircularProgress size={24} color="inherit" /> : <SendIcon />}
+                </IconButton>
+              </Zoom>
+            ) : (
+              <IconButton 
+                color="primary"
+                onClick={toggleRecording}
                 size={isMobile ? "medium" : "large"}
                 sx={{
-                  backgroundColor: message.trim() && !sending ? "primary.main" : "action.disabledBackground",
-                  color: "white",
-                  "&:hover": {
-                    backgroundColor: "primary.dark",
-                  },
                   width: isMobile ? 40 : 48,
                   height: isMobile ? 40 : 48,
-                  transition: "all 0.2s ease",
-                  boxShadow: 2,
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow: 3
-                  },
-                  "&:active": {
-                    transform: "translateY(0)",
-                  }
+                  transition: "all 0.2s ease"
                 }}
               >
-                {sending ? <CircularProgress size={24} color="inherit" /> : <SendIcon />}
+                {recording ? <KeyboardIcon /> : <MicIcon />}
               </IconButton>
-            </Zoom>
-          ) : (
-            <IconButton 
-              color="primary"
-              onClick={toggleRecording}
-              size={isMobile ? "medium" : "large"}
-              sx={{
-                width: isMobile ? 40 : 48,
-                height: isMobile ? 40 : 48,
-                transition: "all 0.2s ease"
+            )}
+          </Box>
+
+          {/* Suggestions row - afișează până la 3 sugestii de cuvinte */}
+          {suggestionEnabled && showSuggestions && suggestions.length > 0 && (
+            <Box 
+              sx={{ 
+                display: "flex", 
+                flexWrap: "wrap", 
+                gap: 1, 
+                mt: 1.5, 
+                width: "100%",
+                justifyContent: "center",
+                animation: "fadeIn 0.3s ease-in-out",
+                "@keyframes fadeIn": {
+                  "0%": { opacity: 0, transform: "translateY(5px)" },
+                  "100%": { opacity: 1, transform: "translateY(0)" }
+                }
               }}
             >
-              {recording ? <KeyboardIcon /> : <MicIcon />}
-            </IconButton>
+              {suggestions.slice(0, 3).map((suggestion, index) => (
+                <Chip
+                  key={index}
+                  label={
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Box 
+                        component="span" 
+                        sx={{ 
+                          fontSize: '0.7rem', 
+                          bgcolor: 'rgba(0,0,0,0.1)', 
+                          borderRadius: '50%',
+                          width: 16, 
+                          height: 16, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          mr: 0.5
+                        }}
+                      >
+                        {index + 1}
+                      </Box>
+                      {suggestion}
+                    </Box>
+                  }
+                  size="small"
+                  onClick={() => handleSuggestionClick(suggestion)}
+                  clickable
+                  color="primary"
+                  variant="outlined"
+                  sx={{ 
+                    borderRadius: 1.5,
+                    transition: "all 0.2s",
+                    "&:hover": {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      transform: "translateY(-2px)"
+                    },
+                    fontWeight: 400
+                  }}
+                />
+              ))}
+            </Box>
           )}
-
-          {/* Emoji picker popover */}
-          <Popover
-            open={showEmojiPicker}
-            anchorEl={anchorEl}
-            onClose={() => setShowEmojiPicker(false)}
-            anchorOrigin={{
-              vertical: 'top',
-              horizontal: 'center',
-            }}
-            transformOrigin={{
-              vertical: 'bottom',
-              horizontal: 'center',
-            }}
-            sx={{ mt: -1 }}
-          >
-            <Paper sx={{ p: 1.5, maxWidth: 270 }}>
-              <Grid container spacing={1}>
-                {COMMON_EMOJIS.map((emoji, index) => (
-                  <Grid item key={index}>
-                    <Button
-                      variant="text"
-                      onClick={() => addEmoji(emoji)}
-                      sx={{ 
-                        minWidth: 'auto', 
-                        fontSize: '1.2rem',
-                        p: 0.5,
-                        borderRadius: 1,
-                        "&:hover": {
-                          backgroundColor: alpha(theme.palette.primary.main, 0.1)
-                        }
-                      }}
-                    >
-                      {emoji}
-                    </Button>
-                  </Grid>
-                ))}
-              </Grid>
-            </Paper>
-          </Popover>
         </Box>
       )}
+
+      {/* Emoji picker popover */}
+      <Popover
+        open={showEmojiPicker}
+        anchorEl={anchorEl}
+        onClose={() => setShowEmojiPicker(false)}
+        anchorOrigin={{
+          vertical: 'top',
+          horizontal: 'center',
+        }}
+        transformOrigin={{
+          vertical: 'bottom',
+          horizontal: 'center',
+        }}
+        sx={{ mt: -1 }}
+      >
+        <Paper sx={{ p: 1.5, maxWidth: 270 }}>
+          <Grid container spacing={1}>
+            {COMMON_EMOJIS.map((emoji, index) => (
+              <Grid item key={index}>
+                <Button
+                  variant="text"
+                  onClick={() => addEmoji(emoji)}
+                  sx={{ 
+                    minWidth: 'auto', 
+                    fontSize: '1.2rem',
+                    p: 0.5,
+                    borderRadius: 1,
+                    "&:hover": {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1)
+                    }
+                  }}
+                >
+                  {emoji}
+                </Button>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      </Popover>
     </Box>
   );
 };

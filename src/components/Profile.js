@@ -33,6 +33,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import SecurityIcon from "@mui/icons-material/Security";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import TextFormatIcon from "@mui/icons-material/TextFormat";
 
 import { useAuth } from "../context/AuthContext";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
@@ -51,6 +52,7 @@ const Profile = ({ onBack }) => {
     displayName: "",
     statusMessage: "",
     notificationsEnabled: true,
+    suggestionEnabled: true, // Adăugăm noua setare pentru sugestii de cuvinte
     privacy: {
       showLastSeen: true,
       showOnlineStatus: true
@@ -89,6 +91,7 @@ const Profile = ({ onBack }) => {
             displayName: userData.displayName || currentUser.displayName || "",
             statusMessage: userData.statusMessage || "",
             notificationsEnabled: userData.notificationsEnabled !== false, // Default to true
+            suggestionEnabled: userData.suggestionEnabled !== false, // Default to true
             privacy: {
               showLastSeen: userData.privacy?.showLastSeen !== false, // Default to true
               showOnlineStatus: userData.privacy?.showOnlineStatus !== false // Default to true
@@ -108,6 +111,7 @@ const Profile = ({ onBack }) => {
             displayName: currentUser.displayName || "",
             statusMessage: "",
             notificationsEnabled: true,
+            suggestionEnabled: true, // Setare implicită pentru sugestii
             privacy: {
               showLastSeen: true,
               showOnlineStatus: true
@@ -140,6 +144,7 @@ const Profile = ({ onBack }) => {
         displayName: editableDetails.displayName,
         statusMessage: editableDetails.statusMessage,
         notificationsEnabled: editableDetails.notificationsEnabled,
+        suggestionEnabled: editableDetails.suggestionEnabled, // Salvăm setarea pentru sugestii
         privacy: {
           showLastSeen: editableDetails.privacy.showLastSeen,
           showOnlineStatus: editableDetails.privacy.showOnlineStatus
@@ -153,6 +158,7 @@ const Profile = ({ onBack }) => {
         displayName: editableDetails.displayName,
         statusMessage: editableDetails.statusMessage,
         notificationsEnabled: editableDetails.notificationsEnabled,
+        suggestionEnabled: editableDetails.suggestionEnabled,
         privacy: {
           showLastSeen: editableDetails.privacy.showLastSeen,
           showOnlineStatus: editableDetails.privacy.showOnlineStatus
@@ -191,6 +197,7 @@ const Profile = ({ onBack }) => {
               displayName: userDetails.displayName || currentUser.displayName || "",
               statusMessage: userDetails.statusMessage || "",
               notificationsEnabled: userDetails.notificationsEnabled !== false,
+              suggestionEnabled: userDetails.suggestionEnabled !== false,
               privacy: {
                 showLastSeen: userDetails.privacy?.showLastSeen !== false,
                 showOnlineStatus: userDetails.privacy?.showOnlineStatus !== false
@@ -531,6 +538,52 @@ const Profile = ({ onBack }) => {
 
         <Divider sx={{ my: 3 }} />
 
+        {/* Text Suggestions Section - NEW */}
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle1" color="primary" gutterBottom>
+            <TextFormatIcon 
+              fontSize="small" 
+              sx={{ verticalAlign: "middle", mr: 1 }} 
+            />
+            Asistență la scriere
+          </Typography>
+
+          <Paper
+            elevation={0}
+            sx={{ 
+              p: 2, 
+              bgcolor: "background.default",
+              borderRadius: 2
+            }}
+          >
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={editableDetails.suggestionEnabled}
+                      onChange={(e) => 
+                        setEditableDetails(prev => ({
+                          ...prev,
+                          suggestionEnabled: e.target.checked
+                        }))
+                      }
+                      disabled={!editing}
+                      color="primary"
+                    />
+                  }
+                  label="Arată sugestii de cuvinte în timpul scrierii"
+                />
+                <Typography variant="body2" color="text.secondary" sx={{ pl: 6, mt: 0.5 }}>
+                  Activează sau dezactivează sugestiile de text ce apar în timpul scrierii mesajelor
+                </Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+        </Box>
+
+        <Divider sx={{ my: 3 }} />
+
         {/* Account Information */}
         <Box>
           <Typography variant="subtitle1" color="primary" gutterBottom>
@@ -547,7 +600,7 @@ const Profile = ({ onBack }) => {
           >
             <Grid container spacing={2}>
               <Grid item xs={6} sm={4}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   Creat la
                 </Typography>
                 <Typography variant="body1">
@@ -556,7 +609,7 @@ const Profile = ({ onBack }) => {
               </Grid>
               
               <Grid item xs={6} sm={4}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   Ultima autentificare
                 </Typography>
                 <Typography variant="body1">
@@ -565,7 +618,7 @@ const Profile = ({ onBack }) => {
               </Grid>
               
               <Grid item xs={12} sm={4}>
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" color="text.secondary" gutterBottom>
                   Status cont
                 </Typography>
                 <Chip 
