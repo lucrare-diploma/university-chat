@@ -15,7 +15,10 @@ import {
   Collapse,
   Button,
   alpha,
-  Chip
+  Chip,
+  Typography,
+  Fade,
+  Divider
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
@@ -25,6 +28,8 @@ import MicIcon from "@mui/icons-material/Mic";
 import InsertPhotoIcon from "@mui/icons-material/InsertPhoto";
 import KeyboardIcon from "@mui/icons-material/Keyboard";
 import CloseIcon from "@mui/icons-material/Close";
+import SmartToyIcon from "@mui/icons-material/SmartToy";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import { db } from "../firebase/config";
 import { useAuth } from "../context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
@@ -37,22 +42,29 @@ const COMMON_EMOJIS = [
   "🥰", "😎", "👌", "🙄", "😢", "🤦‍♂️", "🤦‍♀️", "🤷‍♂️"
 ];
 
-const MessageInput = ({ onSendMessage, isMobile }) => {
+const MessageInput = ({ 
+  onSendMessage, 
+  isMobile, 
+  aiSuggestions = [], 
+  loadingSuggestions = false,
+  onSuggestionUsed
+}) => {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showAttachOptions, setShowAttachOptions] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [recording, setRecording] = useState(false);
   const [anchorEl, setAnchorEl] = useState(null);
-  const [suggestions, setSuggestions] = useState([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [wordSuggestions, setWordSuggestions] = useState([]);
+  const [showWordSuggestions, setShowWordSuggestions] = useState(false);
   const [suggestionEnabled, setSuggestionEnabled] = useState(true);
+  const [aiEnabled, setAiEnabled] = useState(true);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const theme = useTheme();
   const { currentUser } = useAuth();
 
-  // Fetch user preferences (including suggestion setting)
+  // Fetch user preferences
   useEffect(() => {
     const fetchUserPreferences = async () => {
       if (currentUser) {
@@ -62,8 +74,12 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
 
           if (userDoc.exists()) {
             const userData = userDoc.data();
+            // Update local state with user preferences
             if (userData.suggestionEnabled !== undefined) {
               setSuggestionEnabled(userData.suggestionEnabled);
+            }
+            if (userData.aiEnabled !== undefined) {
+              setAiEnabled(userData.aiEnabled);
             }
           }
         } catch (error) {
@@ -79,11 +95,11 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
   useEffect(() => {
     if (suggestionEnabled && message.trim() !== '') {
       const newSuggestions = generateSuggestions(message);
-      setSuggestions(newSuggestions);
-      setShowSuggestions(newSuggestions.length > 0);
+      setWordSuggestions(newSuggestions);
+      setShowWordSuggestions(newSuggestions.length > 0);
     } else {
-      setSuggestions([]);
-      setShowSuggestions(false);
+      setWordSuggestions([]);
+      setShowWordSuggestions(false);
     }
   }, [message, suggestionEnabled]);
 
@@ -119,11 +135,11 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
   // Handler pentru tasta Enter
   const handleKeyDown = (e) => {
     // Selectează o sugestie folosind tastele 1, 2, 3
-    if (showSuggestions && suggestions.length > 0 && e.altKey) {
+    if (showWordSuggestions && wordSuggestions.length > 0 && e.altKey) {
       const suggestionIndex = parseInt(e.key) - 1;
-      if (suggestionIndex >= 0 && suggestionIndex < suggestions.length) {
+      if (suggestionIndex >= 0 && suggestionIndex < wordSuggestions.length) {
         e.preventDefault();
-        handleSuggestionClick(suggestions[suggestionIndex]);
+        handleWordSuggestionClick(wordSuggestions[suggestionIndex]);
         return;
       }
     }
@@ -156,10 +172,20 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
     inputRef.current?.focus();
   };
 
-  // Handle suggestion click
-  const handleSuggestionClick = (suggestion) => {
+  // Handle word suggestion click
+  const handleWordSuggestionClick = (suggestion) => {
     const newText = applySuggestion(message, suggestion);
     setMessage(newText);
+    inputRef.current?.focus();
+  };
+
+  // Handle AI suggestion click
+  const handleAISuggestionClick = (suggestion) => {
+    setMessage(suggestion);
+    // Notifică părintele că sugestia a fost folosită
+    if (onSuggestionUsed) {
+      onSuggestionUsed(suggestion);
+    }
     inputRef.current?.focus();
   };
 
@@ -181,6 +207,12 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
     setShowAttachOptions(false);
   };
 
+  // Decide când să afișăm sugestiile AI
+  const shouldShowAISuggestions = 
+    aiEnabled && 
+    aiSuggestions.length > 0 && 
+    !message.trim(); // Afișăm doar când nu există text scris
+
   return (
     <Box 
       component="form"
@@ -197,6 +229,78 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
         boxSizing: "border-box"
       }}
     >
+      {/* AI Suggestions area */}
+      {shouldShowAISuggestions && (
+        <Fade in={shouldShowAISuggestions}>
+          <Box 
+            sx={{ 
+              mb: 2,
+              p: 1.5,
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.primary.light, 0.07),
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
+            }}
+          >
+            <Box 
+              sx={{ 
+                display: "flex", 
+                alignItems: "center", 
+                mb: 1,
+              }}
+            >
+              <SmartToyIcon 
+                fontSize="small" 
+                color="primary" 
+                sx={{ mr: 1, opacity: 0.8 }} 
+              />
+              <Typography variant="body2" color="primary.main" sx={{ fontWeight: 500 }}>
+                Sugestii de răspuns generate de AI
+              </Typography>
+              {loadingSuggestions && (
+                <CircularProgress size={14} sx={{ ml: 1 }} />
+              )}
+            </Box>
+            
+            <Divider sx={{ mb: 1.5 }} />
+            
+            <Box 
+              sx={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                gap: 1,
+                flexWrap: "wrap"
+              }}
+            >
+              {aiSuggestions.map((suggestion, index) => (
+                <Button
+                  key={index}
+                  variant="outlined"
+                  size="small"
+                  onClick={() => handleAISuggestionClick(suggestion)}
+                  startIcon={<AutoAwesomeIcon fontSize="small" />}
+                  sx={{
+                    justifyContent: "flex-start",
+                    textTransform: "none",
+                    borderRadius: 2,
+                    py: 0.5,
+                    px: 1.5,
+                    fontWeight: 400,
+                    textAlign: "left",
+                    borderColor: alpha(theme.palette.primary.main, 0.3),
+                    "&:hover": {
+                      backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                      borderColor: theme.palette.primary.main,
+                    }
+                  }}
+                >
+                  {suggestion}
+                </Button>
+              ))}
+            </Box>
+          </Box>
+        </Fade>
+      )}
+
       {/* Attach options */}
       <Collapse in={showAttachOptions}>
         <Paper 
@@ -414,8 +518,8 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
             )}
           </Box>
 
-          {/* Suggestions row - afișează până la 3 sugestii de cuvinte */}
-          {suggestionEnabled && showSuggestions && suggestions.length > 0 && (
+          {/* Word suggestions row - afișează până la 3 sugestii de cuvinte */}
+          {suggestionEnabled && showWordSuggestions && wordSuggestions.length > 0 && (
             <Box 
               sx={{ 
                 display: "flex", 
@@ -431,7 +535,7 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
                 }
               }}
             >
-              {suggestions.slice(0, 3).map((suggestion, index) => (
+              {wordSuggestions.slice(0, 3).map((suggestion, index) => (
                 <Chip
                   key={index}
                   label={
@@ -456,7 +560,7 @@ const MessageInput = ({ onSendMessage, isMobile }) => {
                     </Box>
                   }
                   size="small"
-                  onClick={() => handleSuggestionClick(suggestion)}
+                  onClick={() => handleWordSuggestionClick(suggestion)}
                   clickable
                   color="primary"
                   variant="outlined"
