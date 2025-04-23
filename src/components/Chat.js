@@ -50,9 +50,11 @@ import { useAuth } from "../context/AuthContext";
 import Message from "./Message";
 import MessageInput from "./MessageInput";
 import { encryptMessage, decryptMessage, generateChatKey } from "../utils/encryption";
+import { getAISuggestions, isAIAvailable, getLocalSuggestions } from "../utils/aiSuggestions";
 
 const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const [messages, setMessages] = useState([]);
+  const [decryptedMessages, setDecryptedMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(null);
@@ -64,6 +66,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const [loadedAll, setLoadedAll] = useState(false);
   const [messagesLimit, setMessagesLimit] = useState(20);
   const [touchStart, setTouchStart] = useState(null);
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const [aiEnabled, setAiEnabled] = useState(true);
 
   const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
@@ -96,6 +101,30 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       console.log("Cheia de criptare a fost generată pentru conversație");
     }
   }, [currentUser, selectedUser]);
+
+  // Verifică dacă utilizatorul are activată funcționalitatea AI
+  useEffect(() => {
+    const fetchUserPreferences = async () => {
+      if (currentUser) {
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            // Verificăm setarea aiEnabled (dacă există)
+            if (userData.aiEnabled !== undefined) {
+              setAiEnabled(userData.aiEnabled);
+            }
+          }
+        } catch (error) {
+          console.error("Eroare la obținerea preferințelor de AI:", error);
+        }
+      }
+    };
+    
+    fetchUserPreferences();
+  }, [currentUser]);
 
   // Funcție pentru a derula la ultimul mesaj
   const scrollToBottom = (behavior = "smooth") => {
@@ -180,6 +209,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       });
 
       setMessages(messagesList);
+      setDecryptedMessages(messagesList);
       setMessagesLimit(prevLimit => prevLimit + 20);
       setLoadedAll(messagesList.length < messagesLimit + 20);
 
@@ -223,6 +253,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       const unsubscribe = onSnapshot(q, (snapshot) => {
         console.log("Snapshot de mesaje primit, număr:", snapshot.size);
         const messagesList = [];
+        const decryptedList = [];
 
         snapshot.forEach((doc) => {
           const messageData = doc.data();
@@ -233,25 +264,45 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
           // Decrypt the message text if it's encrypted
           let decryptedText = messageData.text;
-          if (messageData.encrypted) {
-            decryptedText = decryptMessage(messageData.text, chatKey);
+          try {
+            if (messageData.encrypted) {
+              decryptedText = decryptMessage(messageData.text, chatKey);
+            }
+          } catch (error) {
+            console.error("Eroare la decriptarea mesajului:", error);
+            decryptedText = "[Mesaj criptat - nu poate fi decriptat]";
           }
 
-          messagesList.push({
+          const messageObj = {
             id: doc.id,
             ...messageData,
-            text: decryptedText, // Replace encrypted text with decrypted text
+            text: messageData.text, // Text criptat
             createdAt
-          });
+          };
+
+          const decryptedObj = {
+            ...messageObj,
+            text: decryptedText, // Text decriptat
+            isOwn: messageData.senderId === currentUser.uid
+          };
+
+          messagesList.push(messageObj);
+          decryptedList.push(decryptedObj);
         });
 
         console.log("Mesaje procesate:", messagesList.length);
         setMessages(messagesList);
+        setDecryptedMessages(decryptedList);
         setLoading(false);
         setLoadedAll(messagesList.length < messagesLimit);
 
         // Derulează la ultimul mesaj după ce se încarcă
         setTimeout(scrollToBottom, 100);
+        
+        // Obține sugestii AI bazate pe mesajele decriptate
+        if (decryptedList.length > 0 && aiEnabled) {
+          generateAISuggestions(chatId, decryptedList);
+        }
       }, (err) => {
         console.error("Eroare la ascultarea mesajelor:", err);
         setError("Nu s-au putut încărca mesajele: " + err.message);
@@ -268,6 +319,41 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       setLoading(false);
     }
   }, [currentUser, selectedUser, getChatId, chatKey, messagesLimit]);
+
+  // Generează sugestii de la API-ul AI
+  const generateAISuggestions = async (chatId, messages) => {
+    // Nu generăm sugestii pentru conversațiile cu sine
+    if (isSelfChat || !aiEnabled) {
+      setAiSuggestions([]);
+      return;
+    }
+    
+    // Verifică dacă există mesaje și dacă ultimul mesaj nu este de la utilizatorul curent
+    if (messages.length === 0 || messages[messages.length - 1].senderId === currentUser.uid) {
+      setAiSuggestions([]);
+      return;
+    }
+    
+    try {
+      setLoadingSuggestions(true);
+      
+      // Verifică disponibilitatea API-ului Claude
+      let suggestions = [];
+      if (isAIAvailable()) {
+        suggestions = await getAISuggestions(chatId, currentUser.uid, messages);
+      } else {
+        console.log("API-ul Claude nu este disponibil, se folosesc sugestii locale");
+        suggestions = getLocalSuggestions(messages);
+      }
+      
+      setAiSuggestions(suggestions);
+    } catch (error) {
+      console.error("Eroare la generarea sugestiilor AI:", error);
+      setAiSuggestions([]);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  };
 
   // Marcarea mesajelor ca fiind citite când se deschide conversația
   useEffect(() => {
@@ -342,6 +428,13 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     }
   }, [messages, loading]);
 
+  // Când un utilizator selectează o sugestie, o eliminăm din lista de sugestii
+  const handleSuggestionUsed = (suggestion) => {
+    setAiSuggestions(currentSuggestions => 
+      currentSuggestions.filter(s => s !== suggestion)
+    );
+  };
+
   // Trimite un mesaj
   const handleSendMessage = async (text) => {
     if (!text.trim() || !currentUser || !selectedUser || !chatKey) return;
@@ -403,6 +496,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
       console.log("Mesaj criptat trimis cu succes");
       scrollToBottom("smooth");
+      
+      // Resetăm sugestiile după ce utilizatorul trimite un mesaj
+      setAiSuggestions([]);
     } catch (error) {
       console.error("Eroare la trimiterea mesajului:", error);
       setError("Nu s-a putut trimite mesajul: " + error.message);
@@ -739,11 +835,11 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           <Typography color="error" sx={{ textAlign: "center", my: 2 }}>
             {error}
           </Typography>
-        ) : messages.length > 0 ? (
-          messages.map((message, index) => {
+        ) : decryptedMessages.length > 0 ? (
+          decryptedMessages.map((message, index) => {
             // Check if this message is from the same sender as the previous one
-            const prevMessage = index > 0 ? messages[index - 1] : null;
-            const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+            const prevMessage = index > 0 ? decryptedMessages[index - 1] : null;
+            const nextMessage = index < decryptedMessages.length - 1 ? decryptedMessages[index + 1] : null;
             const isGroupedWithPrev = prevMessage && prevMessage.senderId === message.senderId;
             const isGroupedWithNext = nextMessage && nextMessage.senderId === message.senderId;
 
@@ -806,7 +902,13 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           boxShadow: isMobile ? "0px -2px 4px rgba(0,0,0,0.05)" : "none"
         }}
       >
-        <MessageInput onSendMessage={handleSendMessage} isMobile={isMobile} />
+        <MessageInput 
+          onSendMessage={handleSendMessage} 
+          isMobile={isMobile} 
+          aiSuggestions={aiSuggestions}
+          loadingSuggestions={loadingSuggestions}
+          onSuggestionUsed={handleSuggestionUsed}
+        />
       </Box>
 
       {/* Information Drawer */}
@@ -925,7 +1027,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               Număr mesaje
             </Typography>
             <Typography variant="body2">
-              {messages.length} mesaje
+              {decryptedMessages.length} mesaje
             </Typography>
           </Box>
         </Box>
