@@ -75,10 +75,15 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const messagesContainerRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
   const theme = useTheme();
+  
+  // Media queries pentru diferite dimensiuni de ecran
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+  const isExtraSmall = useMediaQuery(theme.breakpoints.down('xs'));
+  const isVerySmall = useMediaQuery('(max-width:380px)'); // Pentru telefoane foarte mici
   const isPortrait = useMediaQuery('(orientation: portrait)');
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
-  // Verifică dacă utilizatorul actual este întro conversație cu sine
+  // Verifică dacă utilizatorul actual este într-o conversație cu sine
   const isSelfChat = selectedUser?.id === currentUser?.uid;
 
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
@@ -545,6 +550,16 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   // Text pentru titlul conversației
   const chatTitle = isSelfChat ? "Notițe personale" : selectedUser?.displayName;
 
+  // Ajustări responsiv pentru înălțimea containerului de mesaje
+  // Aceste valori se ajustează în funcție de dimensiunea ecranului
+  const getMessageContainerHeight = () => {
+    if (isVerySmall) return "calc(100% - 110px)";
+    if (isExtraSmall) return "calc(100% - 120px)";
+    if (isMobile) return "calc(100% - 130px)";
+    if (isTablet) return "calc(100% - 140px)";
+    return "calc(100% - 150px)";
+  };
+
   return (
     <Paper
       sx={{
@@ -569,25 +584,33 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           borderBottom: 1,
           borderColor: "divider",
           zIndex: 10,
-          top: 0
+          top: 0,
+          minHeight: isVerySmall ? 48 : (isMobile ? 56 : 64), // Înălțime adaptivă
         }}
       >
-        <Toolbar sx={{ minHeight: isMobile ? 56 : 64 }}>
+        <Toolbar 
+          sx={{ 
+            minHeight: isVerySmall ? 48 : (isMobile ? 56 : 64),
+            p: isVerySmall ? 0.5 : (isMobile ? 1 : 2), // Padding adaptiv
+          }}
+        >
           <IconButton
             edge="start"
             color="inherit"
             onClick={onBack}
             sx={{
-              mr: 2,
+              mr: isVerySmall ? 0.5 : (isMobile ? 1 : 2),
               transition: "all 0.2s",
               color: "white",
+              padding: isVerySmall ? '4px' : undefined, // Padding mai mic pentru telefoane foarte mici
               "&:hover": {
                 backgroundColor: alpha("#ffffff", 0.1)
               }
             }}
             aria-label="înapoi"
+            size={isVerySmall ? "small" : "medium"}
           >
-            {isMobile ? <ArrowBackIcon /> : <MenuIcon />}
+            {isMobile ? <ArrowBackIcon fontSize={isVerySmall ? "small" : "medium"} /> : <MenuIcon />}
           </IconButton>
           <Badge
             overlap="circular"
@@ -597,8 +620,8 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             sx={{
               "& .MuiBadge-badge": {
                 boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
-                width: 12,
-                height: 12,
+                width: isVerySmall ? 8 : 12,
+                height: isVerySmall ? 8 : 12,
                 borderRadius: '50%'
               }
             }}
@@ -607,9 +630,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               src={selectedUser?.photoURL}
               alt={selectedUser?.displayName}
               sx={{
-                mr: 2,
-                width: isMobile ? 40 : 48,
-                height: isMobile ? 40 : 48,
+                mr: isVerySmall ? 1 : 2,
+                width: isVerySmall ? 32 : (isMobile ? 36 : 48),
+                height: isVerySmall ? 32 : (isMobile ? 36 : 48),
                 cursor: "pointer",
                 transition: "transform 0.2s ease",
                 "&:hover": {
@@ -625,6 +648,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             sx={{
               flexGrow: 1,
               cursor: "pointer",
+              overflow: "hidden", // Previne textul prea lung să depășească container-ul
               "&:hover": {
                 opacity: 0.8
               }
@@ -632,11 +656,14 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             onClick={toggleInfoDrawer}
           >
             <Typography
-              variant="h6"
+              variant={isVerySmall ? "body1" : (isMobile ? "h6" : "h6")}
               sx={{
-                fontSize: isMobile ? "1rem" : "1.25rem",
+                fontSize: isVerySmall ? "0.9rem" : (isMobile ? "1rem" : "1.25rem"),
                 fontWeight: 500,
-                color: "white"
+                color: "white",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis"
               }}
             >
               {chatTitle}
@@ -645,7 +672,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               variant="body2"
               color="white"
               sx={{
-                fontSize: isMobile ? "0.75rem" : "0.875rem",
+                fontSize: isVerySmall ? "0.65rem" : (isMobile ? "0.75rem" : "0.875rem"),
                 display: "flex",
                 alignItems: "center",
                 opacity: 0.85
@@ -653,23 +680,25 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             >
               <Box
                 sx={{
-                  width: 8,
-                  height: 8,
+                  width: isVerySmall ? 6 : 8,
+                  height: isVerySmall ? 6 : 8,
                   borderRadius: "50%",
                   bgcolor: selectedUser?.online ? "success.main" : "text.disabled",
                   mr: 0.5,
                   display: "inline-block"
                 }}
               />
-              {isSelfChat ? "Doar tu poți vedea aceste mesaje" : selectedUser?.online ? "Online" : "Offline"}
+              {isSelfChat 
+                ? (isVerySmall ? "Privat" : "Doar tu poți vedea aceste mesaje") 
+                : selectedUser?.online ? "Online" : "Offline"}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
             <Tooltip title="Mesaje criptate end-to-end">
               <LockIcon
-                fontSize="small"
+                fontSize={isVerySmall ? "small" : "small"}
                 sx={{
-                  mr: 1,
+                  mr: isVerySmall ? 0.5 : 1,
                   color: "white",
                   animation: infoOpen ? "none" : "pulse 2s infinite",
                   "@keyframes pulse": {
@@ -691,8 +720,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               aria-label="opțiuni"
               onClick={handleMenuOpen}
               sx={{ color: "white" }}
+              size={isVerySmall ? "small" : "medium"}
             >
-              <MoreVertIcon />
+              <MoreVertIcon fontSize={isVerySmall ? "small" : "medium"} />
             </IconButton>
             <Menu
               anchorEl={anchorEl}
@@ -702,7 +732,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
               PaperProps={{
                 elevation: 3,
-                sx: { minWidth: 200 }
+                sx: { minWidth: isVerySmall ? 160 : 200 }
               }}
             >
               <MenuItem onClick={toggleInfoDrawer}>
@@ -738,7 +768,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             right: 0,
             display: 'flex',
             justifyContent: 'center',
-            py: 0.5,
+            py: isVerySmall ? 0.25 : 0.5,
             zIndex: 5,
             bgcolor: alpha(theme.palette.success.light, 0.1)
           }}>
@@ -746,7 +776,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               <Box sx={{
                 display: 'flex',
                 alignItems: 'center',
-                fontSize: isMobile ? '0.7rem' : '0.8rem',
+                fontSize: isVerySmall ? '0.6rem' : (isMobile ? '0.7rem' : '0.8rem'),
                 color: 'text.secondary',
                 px: 1,
                 borderRadius: 10,
@@ -757,8 +787,16 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               }}
                 onClick={toggleInfoDrawer}
               >
-                <LockIcon sx={{ fontSize: isMobile ? '0.7rem' : '0.8rem', mr: 0.5 }} />
-                {isSelfChat ? "Conversație privată" : "Conversație criptată"}
+                <LockIcon 
+                  sx={{ 
+                    fontSize: isVerySmall ? '0.6rem' : (isMobile ? '0.7rem' : '0.8rem'), 
+                    mr: 0.5 
+                  }} 
+                />
+                {isVerySmall 
+                  ? (isSelfChat ? "Privat" : "Criptat") 
+                  : (isSelfChat ? "Conversație privată" : "Conversație criptată")
+                }
               </Box>
             </Tooltip>
           </Box>
@@ -770,13 +808,15 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         sx={{
           flexGrow: 1,
           overflow: "auto",
-          p: isMobile ? 1.5 : 2,
+          p: isVerySmall ? 0.75 : (isMobile ? 1.5 : 2),
           display: "flex",
           flexDirection: "column",
           bgcolor: theme.palette.background.default,
-          mt: 3,
+          mt: isVerySmall ? 2 : 3,
           position: "relative",
-          height: "calc(100% - 130px)" // Make room for header and input
+          height: getMessageContainerHeight(), // Înălțime adaptivă
+          // Îmbunătățim scrolling-ul pentru dispozitive touch
+          WebkitOverflowScrolling: "touch",
         }}
         onScroll={handleScroll}
       >
@@ -784,14 +824,14 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           <Box sx={{
             display: "flex",
             justifyContent: "center",
-            py: 1,
+            py: isVerySmall ? 0.5 : 1,
             position: "sticky",
             top: 0,
             zIndex: 10,
             backgroundColor: alpha(theme.palette.background.paper, 0.7),
             backdropFilter: "blur(4px)"
           }}>
-            <CircularProgress size={24} thickness={4} />
+            <CircularProgress size={isVerySmall ? 20 : 24} thickness={4} />
           </Box>
         )}
 
@@ -799,17 +839,18 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           <Box sx={{
             display: "flex",
             justifyContent: "center",
-            mb: 2
+            mb: isVerySmall ? 1 : 2
           }}>
             <Button
               variant="outlined"
-              size="small"
+              size={isVerySmall ? "small" : "small"}
               onClick={loadMoreMessages}
               disabled={loadingMore}
               sx={{
                 borderRadius: 4,
                 textTransform: "none",
-                fontSize: "0.8rem"
+                fontSize: isVerySmall ? "0.7rem" : "0.8rem",
+                py: isVerySmall ? 0.25 : 0.5
               }}
             >
               {loadingMore ? "Se încarcă..." : "Încarcă mesaje mai vechi"}
@@ -826,26 +867,39 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             py: 4,
             flex: 1
           }}>
-            <CircularProgress />
-            <Typography sx={{ mt: 2, color: "text.secondary" }}>
+            <CircularProgress size={isVerySmall ? 28 : 36} />
+            <Typography 
+              sx={{ 
+                mt: 2, 
+                color: "text.secondary", 
+                fontSize: isVerySmall ? "0.8rem" : "1rem" 
+              }}
+            >
               Se încarcă mesajele...
             </Typography>
           </Box>
         ) : error ? (
-          <Typography color="error" sx={{ textAlign: "center", my: 2 }}>
+          <Typography 
+            color="error" 
+            sx={{ 
+              textAlign: "center", 
+              my: 2, 
+              fontSize: isVerySmall ? "0.8rem" : "0.9rem" 
+            }}
+          >
             {error}
           </Typography>
         ) : decryptedMessages.length > 0 ? (
           decryptedMessages.map((message, index) => {
-            // Check if this message is from the same sender as the previous one
+            // Verificăm dacă acest mesaj este de la același expeditor ca precedentul
             const prevMessage = index > 0 ? decryptedMessages[index - 1] : null;
             const nextMessage = index < decryptedMessages.length - 1 ? decryptedMessages[index + 1] : null;
             const isGroupedWithPrev = prevMessage && prevMessage.senderId === message.senderId;
             const isGroupedWithNext = nextMessage && nextMessage.senderId === message.senderId;
 
-            // Calculate time difference with the previous message
+            // Calculăm diferența de timp față de mesajul anterior
             const timeGap = prevMessage
-              ? (message.createdAt - prevMessage.createdAt) > 5 * 60 * 1000 // 5 minutes
+              ? (message.createdAt - prevMessage.createdAt) > 5 * 60 * 1000 // 5 minute
               : true;
 
             return (
@@ -853,7 +907,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 key={message.id}
                 message={message}
                 isOwn={message.senderId === currentUser.uid}
-                isMobile={isMobile}
+                isMobile={isMobile || isTablet || isExtraSmall || isVerySmall} // Trimit toate indicațiile despre dimensiunea ecranului
                 isGroupedWithPrev={isGroupedWithPrev && !timeGap}
                 isGroupedWithNext={isGroupedWithNext}
                 showAvatar={!isGroupedWithNext || !nextMessage}
@@ -873,16 +927,36 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               flex: 1
             }}
           >
-            <LockIcon sx={{ fontSize: 40, mb: 2, opacity: 0.6 }} />
-            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+            <LockIcon 
+              sx={{ 
+                fontSize: isVerySmall ? 28 : (isMobile ? 32 : 40), 
+                mb: 2, 
+                opacity: 0.6 
+              }} 
+            />
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                fontWeight: 500, 
+                fontSize: isVerySmall ? "0.9rem" : "1rem" 
+              }}
+            >
               {isSelfChat 
                 ? "Notițele tale vor apărea aici" 
                 : "Nicio conversație încă"}
             </Typography>
-            <Typography variant="body2" sx={{ mt: 1, maxWidth: 300 }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                mt: 1, 
+                maxWidth: 300, 
+                fontSize: isVerySmall ? "0.75rem" : "0.85rem",
+                px: isVerySmall ? 2 : 0
+              }}
+            >
               {isSelfChat 
                 ? "Trimite un mesaj pentru a crea notițe personale criptate end-to-end" 
-                : `Trimite primul mesaj pentru a începe o conversație criptată end-to-end cu ${selectedUser?.displayName}`}
+                : `Trimite primul mesaj pentru a începe o conversație criptată cu ${selectedUser?.displayName}`}
             </Typography>
           </Box>
         )}
@@ -904,7 +978,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       >
         <MessageInput 
           onSendMessage={handleSendMessage} 
-          isMobile={isMobile} 
+          isMobile={isMobile || isExtraSmall || isVerySmall} // Trimit toate indicațiile despre dimensiunea ecranului
           aiSuggestions={aiSuggestions}
           loadingSuggestions={loadingSuggestions}
           onSuggestionUsed={handleSuggestionUsed}
@@ -920,32 +994,60 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         disableSwipeToOpen
         PaperProps={{
           sx: {
-            width: isPortrait ? '100%' : 320,
-            maxHeight: isPortrait ? '70vh' : '100vh',
+            width: isPortrait 
+              ? '100%' 
+              : (isVerySmall ? 260 : (isMobile ? 280 : 320)),
+            maxHeight: isPortrait 
+              ? (isVerySmall ? '85vh' : '70vh') 
+              : '100vh',
             borderTopLeftRadius: isPortrait ? 16 : 0,
             borderTopRightRadius: isPortrait ? 16 : 0,
             boxShadow: 15
           }
         }}
       >
-        <Box sx={{ p: 2, display: 'flex', alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
-          <IconButton edge="start" onClick={toggleInfoDrawer} sx={{ mr: 2 }}>
-            <ArrowBackIcon />
+        <Box 
+          sx={{ 
+            p: isVerySmall ? 1 : 2, 
+            display: 'flex', 
+            alignItems: 'center', 
+            borderBottom: 1, 
+            borderColor: 'divider' 
+          }}
+        >
+          <IconButton 
+            edge="start" 
+            onClick={toggleInfoDrawer} 
+            sx={{ mr: isVerySmall ? 1 : 2 }}
+            size={isVerySmall ? "small" : "medium"}
+          >
+            <ArrowBackIcon fontSize={isVerySmall ? "small" : "medium"} />
           </IconButton>
-          <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
+          <Typography 
+            variant={isVerySmall ? "subtitle1" : "h6"} 
+            sx={{ fontSize: isVerySmall ? '0.9rem' : '1.1rem' }}
+          >
             Detalii conversație
           </Typography>
         </Box>
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ p: isVerySmall ? 1.5 : 3 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
             <Avatar
               src={selectedUser?.photoURL}
               alt={selectedUser?.displayName}
-              sx={{ width: 80, height: 80, mb: 1.5 }}
+              sx={{ 
+                width: isVerySmall ? 64 : 80, 
+                height: isVerySmall ? 64 : 80, 
+                mb: 1.5 
+              }}
             >
               {selectedUser?.displayName?.charAt(0) || "U"}
             </Avatar>
-            <Typography variant="h6" align="center">
+            <Typography 
+              variant={isVerySmall ? "subtitle1" : "h6"} 
+              align="center"
+              sx={{ fontSize: isVerySmall ? '1rem' : '1.25rem' }}
+            >
               {isSelfChat ? "Notițe personale" : selectedUser?.displayName}
             </Typography>
             {!isSelfChat && (
@@ -958,35 +1060,46 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 px: 1.5,
                 py: 0.3,
                 borderRadius: 10,
-                fontSize: '0.75rem'
+                fontSize: isVerySmall ? '0.65rem' : '0.75rem'
               }}>
                 {selectedUser?.online ? 'Online' : 'Offline'}
               </Box>
             )}
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: isVerySmall ? 1 : 2 }} />
 
-          <Typography variant="subtitle2" color="primary" gutterBottom>
+          <Typography 
+            variant={isVerySmall ? "caption" : "subtitle2"} 
+            color="primary" 
+            gutterBottom
+          >
             Securitate
           </Typography>
           <Box sx={{
             bgcolor: alpha(theme.palette.success.light, 0.1),
-            p: 2,
+            p: isVerySmall ? 1 : 2,
             borderRadius: 2,
-            mb: 3,
+            mb: isVerySmall ? 2 : 3,
             display: 'flex',
             alignItems: 'flex-start',
-            gap: 1.5
+            gap: isVerySmall ? 1 : 1.5
           }}>
-            <LockIcon color="success" />
+            <LockIcon color="success" fontSize={isVerySmall ? "small" : "medium"} />
             <Box>
-              <Typography variant="body2" fontWeight={500}>
+              <Typography 
+                variant={isVerySmall ? "caption" : "body2"} 
+                fontWeight={500}
+              >
                 {isSelfChat 
                   ? "Mesajele sunt criptate end-to-end" 
                   : "Mesajele sunt criptate end-to-end"}
               </Typography>
-              <Typography variant="caption" color="text.secondary">
+              <Typography 
+                variant={isVerySmall ? "caption" : "caption"} 
+                color="text.secondary"
+                sx={{ fontSize: isVerySmall ? '0.65rem' : '0.75rem' }}
+              >
                 {isSelfChat 
                   ? "Doar tu poți citi aceste notițe." 
                   : "Nimeni nu poate citi mesajele voastre în afară de voi, nici măcar noi."}
@@ -996,37 +1109,66 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
           {!isSelfChat && (
             <>
-              <Typography variant="subtitle2" color="primary" gutterBottom>
+              <Typography 
+                variant={isVerySmall ? "caption" : "subtitle2"} 
+                color="primary" 
+                gutterBottom
+              >
                 Detalii utilizator
               </Typography>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Box sx={{ mb: isVerySmall ? 1 : 2 }}>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"} 
+                  color="text.secondary" 
+                  gutterBottom
+                >
                   Email
                 </Typography>
-                <Typography variant="body2">
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"}
+                  sx={{ fontSize: isVerySmall ? '0.7rem' : 'inherit' }}
+                >
                   {selectedUser?.email || 'Nedisponibil'}
                 </Typography>
               </Box>
 
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
+              <Box sx={{ mb: isVerySmall ? 2 : 3 }}>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"} 
+                  color="text.secondary" 
+                  gutterBottom
+                >
                   Ultima activitate
                 </Typography>
-                <Typography variant="body2">
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"}
+                  sx={{ fontSize: isVerySmall ? '0.7rem' : 'inherit' }}
+                >
                   {selectedUser?.lastActive ? formatDate(selectedUser.lastActive.toDate ? selectedUser.lastActive.toDate() : selectedUser.lastActive) : 'Necunoscut'}
                 </Typography>
               </Box>
             </>
           )}
 
-          <Typography variant="subtitle2" color="primary" gutterBottom>
+          <Typography 
+            variant={isVerySmall ? "caption" : "subtitle2"} 
+            color="primary" 
+            gutterBottom
+          >
             Conversație
           </Typography>
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="body2" color="text.secondary" gutterBottom>
+          <Box sx={{ mb: isVerySmall ? 2 : 3 }}>
+            <Typography 
+              variant={isVerySmall ? "caption" : "body2"} 
+              color="text.secondary" 
+              gutterBottom
+            >
               Număr mesaje
             </Typography>
-            <Typography variant="body2">
+            <Typography 
+              variant={isVerySmall ? "caption" : "body2"}
+              sx={{ fontSize: isVerySmall ? '0.7rem' : 'inherit' }}
+            >
               {decryptedMessages.length} mesaje
             </Typography>
           </Box>
@@ -1039,7 +1181,15 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         autoHideDuration={4000}
         onClose={() => setSnackbarOpen(false)}
         message={snackbarMessage}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        anchorOrigin={{ 
+          vertical: 'bottom', 
+          horizontal: 'center' 
+        }}
+        sx={{
+          '& .MuiSnackbarContent-root': {
+            fontSize: isVerySmall ? '0.75rem' : '0.875rem',
+          }
+        }}
       />
     </Paper>
   );

@@ -42,8 +42,12 @@ const UserList = ({ setSelectedUser }) => {
   
   const { currentUser } = useAuth();
   const theme = useTheme();
+  
+  // Media queries pentru diferite dimensiuni de ecran
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
+  const isExtraSmall = useMediaQuery(theme.breakpoints.down('xs'));
+  const isVerySmall = useMediaQuery('(max-width:380px)'); // Pentru telefoane foarte mici
 
   // Focus search input with keyboard shortcut
   useEffect(() => {
@@ -245,6 +249,21 @@ const UserList = ({ setSelectedUser }) => {
   // Count total unread messages
   const totalUnread = Object.values(unreadCounts).reduce((total, count) => total + count, 0);
 
+  // Ajustăm mărimea fontului și spațierea în funcție de dimensiunea ecranului
+  const getFontSize = (base) => {
+    if (isVerySmall) return `${base * 0.85}rem`;
+    if (isExtraSmall) return `${base * 0.9}rem`;
+    if (isSmall) return `${base * 0.95}rem`;
+    return `${base}rem`;
+  };
+
+  const getPadding = () => {
+    if (isVerySmall) return 1;
+    if (isExtraSmall) return 1.5;
+    if (isSmall) return 1.5;
+    return 2;
+  };
+
   if (loading) {
     return (
       <Box sx={{ 
@@ -252,11 +271,18 @@ const UserList = ({ setSelectedUser }) => {
         flexDirection: "column",
         justifyContent: "center", 
         alignItems: "center",
-        p: 3, 
+        p: getPadding(), 
         height: "100%" 
       }}>
-        <CircularProgress size={40} thickness={4} color="primary" />
-        <Typography variant="body2" sx={{ mt: 2, color: "text.secondary" }}>
+        <CircularProgress size={isVerySmall ? 32 : 40} thickness={4} color="primary" />
+        <Typography 
+          variant={isVerySmall ? "caption" : "body2"} 
+          sx={{ 
+            mt: 2, 
+            color: "text.secondary",
+            fontSize: getFontSize(0.9)
+          }}
+        >
           Se încarcă utilizatorii...
         </Typography>
       </Box>
@@ -272,7 +298,7 @@ const UserList = ({ setSelectedUser }) => {
       maxHeight: "100%"
     }}>
       <Box sx={{ 
-        p: 2, 
+        p: getPadding(), 
         display: "flex", 
         justifyContent: "space-between", 
         alignItems: "center",
@@ -282,9 +308,9 @@ const UserList = ({ setSelectedUser }) => {
       }}>
         <Box>
           <Typography 
-            variant="h6" 
+            variant={isVerySmall ? "subtitle1" : "h6"} 
             sx={{ 
-              fontSize: isMobile ? "1.1rem" : "1.25rem",
+              fontSize: getFontSize(isVerySmall ? 1.0 : 1.25),
               fontWeight: 600,
               color: "primary.main",
               display: "flex",
@@ -297,7 +323,11 @@ const UserList = ({ setSelectedUser }) => {
               color="success"
               size="small"
               variant="outlined"
-              sx={{ ml: 1, fontSize: '0.7rem', height: 20 }}
+              sx={{ 
+                ml: 1, 
+                fontSize: getFontSize(0.7), 
+                height: isVerySmall ? 16 : 20 
+              }}
             />
             {totalUnread > 0 && (
               <Chip
@@ -307,8 +337,8 @@ const UserList = ({ setSelectedUser }) => {
                 variant="filled"
                 sx={{ 
                   ml: 1, 
-                  fontSize: '0.7rem', 
-                  height: 20,
+                  fontSize: getFontSize(0.7), 
+                  height: isVerySmall ? 16 : 20,
                   fontWeight: 'bold'
                 }}
               />
@@ -317,23 +347,23 @@ const UserList = ({ setSelectedUser }) => {
         </Box>
         <Tooltip title="Reîmprospătează lista">
           <IconButton 
-            size="small" 
+            size={isVerySmall ? "small" : "small"} 
             onClick={refreshUsers} 
             aria-label="Reîmprospătează lista"
             color="primary"
             disabled={refreshing}
           >
             {refreshing ? 
-              <CircularProgress size={20} color="inherit" /> : 
-              <RefreshIcon />
+              <CircularProgress size={isVerySmall ? 16 : 20} color="inherit" /> : 
+              <RefreshIcon fontSize={isVerySmall ? "small" : "medium"} />
             }
           </IconButton>
         </Tooltip>
       </Box>
       
       <Box sx={{ 
-        px: 2, 
-        py: 1.5, 
+        px: getPadding(), 
+        py: isVerySmall ? 1 : 1.5, 
         borderBottom: 1, 
         borderColor: "divider",
         bgcolor: "background.paper"
@@ -347,12 +377,16 @@ const UserList = ({ setSelectedUser }) => {
           boxShadow: 'inset 0 0 2px rgba(0,0,0,0.1)'
         }}>
           <InputBase
-            placeholder="Caută utilizatori..."
+            placeholder={isVerySmall ? "Caută..." : (isExtraSmall ? "Caută..." : "Caută utilizatori...")}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             inputRef={searchInputRef}
             startAdornment={
-              <SearchIcon sx={{ mr: 1, color: 'text.secondary', fontSize: '1.2rem' }} />
+              <SearchIcon sx={{ 
+                mr: 1, 
+                color: 'text.secondary', 
+                fontSize: getFontSize(1.2) 
+              }} />
             }
             endAdornment={
               searchTerm && (
@@ -368,25 +402,32 @@ const UserList = ({ setSelectedUser }) => {
             sx={{ 
               ml: 1, 
               flex: 1, 
-              fontSize: "0.9rem",
+              fontSize: getFontSize(0.9),
               '& .MuiInputBase-input': {
-                py: 1
+                py: isVerySmall ? 0.75 : 1
               }
             }}
             inputProps={{
               'aria-label': 'caută utilizatori',
-              'placeholder': isSmall ? 'Caută...' : 'Caută utilizatori... (Ctrl+K)'
+              'placeholder': isVerySmall 
+                ? 'Caută...' 
+                : (isExtraSmall 
+                    ? 'Caută...' 
+                    : (isSmall 
+                        ? 'Caută...' 
+                        : 'Caută utilizatori... (Ctrl+K)'))
             }}
           />
           <Tooltip title="Filtrează utilizatorii">
             <IconButton 
               type="button" 
-              sx={{ p: '8px' }} 
+              sx={{ p: isVerySmall ? '6px' : '8px' }} 
               aria-label="filtrează"
               color={showFilters || filter !== 'all' ? 'primary' : 'default'}
               onClick={() => setShowFilters(!showFilters)}
+              size={isVerySmall ? "small" : "medium"}
             >
-              <FilterListIcon />
+              <FilterListIcon fontSize={isVerySmall ? "small" : "medium"} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -395,21 +436,24 @@ const UserList = ({ setSelectedUser }) => {
           <Box sx={{ 
             display: 'flex', 
             mt: 1.5, 
-            gap: 1,
+            gap: isVerySmall ? 0.5 : 1,
             justifyContent: 'space-between'
           }}>
             <Button
               size="small"
               variant={filter === 'all' ? 'contained' : 'outlined'}
               onClick={() => handleFilterChange('all')}
-              startIcon={<PeopleIcon />}
+              startIcon={<PeopleIcon fontSize={isVerySmall ? "small" : "medium"} />}
               sx={{ 
                 flex: 1,
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: 1.5,
+                fontSize: getFontSize(0.8),
+                py: isVerySmall ? 0.25 : 0.5,
+                px: isVerySmall ? 0.5 : 1
               }}
             >
-              Toți
+              {isVerySmall ? "Toți" : "Toți"}
             </Button>
             <Button
               size="small"
@@ -419,7 +463,10 @@ const UserList = ({ setSelectedUser }) => {
               sx={{ 
                 flex: 1,
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: 1.5,
+                fontSize: getFontSize(0.8),
+                py: isVerySmall ? 0.25 : 0.5,
+                px: isVerySmall ? 0.5 : 1
               }}
             >
               Online
@@ -432,7 +479,10 @@ const UserList = ({ setSelectedUser }) => {
               sx={{ 
                 flex: 1,
                 textTransform: 'none',
-                borderRadius: 1.5
+                borderRadius: 1.5,
+                fontSize: getFontSize(0.8),
+                py: isVerySmall ? 0.25 : 0.5,
+                px: isVerySmall ? 0.5 : 1
               }}
             >
               Offline
@@ -444,7 +494,11 @@ const UserList = ({ setSelectedUser }) => {
       {error && (
         <Alert 
           severity="error" 
-          sx={{ mx: 2, my: 1 }}
+          sx={{ 
+            mx: 2, 
+            my: 1,
+            fontSize: getFontSize(0.8)
+          }}
           onClose={() => setError(null)}
           variant="filled"
         >
@@ -457,7 +511,13 @@ const UserList = ({ setSelectedUser }) => {
         flexGrow: 1, 
         overflow: "auto",
         bgcolor: "background.default",
-        height: isMobile ? "calc(100vh - 220px)" : "auto", // Fixed height calculation
+        height: isMobile 
+          ? (isVerySmall 
+              ? "calc(100vh - 180px)" 
+              : (isExtraSmall 
+                  ? "calc(100vh - 200px)" 
+                  : "calc(100vh - 220px)"))
+          : "auto",
         position: "relative",
         WebkitOverflowScrolling: "touch", // Improved inertial scrolling on iOS
         // Add these touch-action properties to ensure mobile scrolling works
@@ -480,6 +540,8 @@ const UserList = ({ setSelectedUser }) => {
                     <UserItem 
                       user={user} 
                       onSelect={() => setSelectedUser(user)} 
+                      isMobile={isMobile || isSmall || isExtraSmall || isVerySmall}
+                      isVerySmall={isVerySmall}
                     />
                   </div>
                 </Zoom>
@@ -487,31 +549,42 @@ const UserList = ({ setSelectedUser }) => {
             ) : (
               <Fade in={true}>
                 <Box sx={{ 
-                  p: 3, 
+                  p: getPadding(), 
                   textAlign: "center",
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  height: 200
+                  height: isVerySmall ? 150 : 200
                 }}>
                   <PersonIcon 
                     sx={{ 
-                      fontSize: 48, 
+                      fontSize: isVerySmall ? 32 : 48, 
                       color: 'text.disabled',
                       mb: 2
                     }} 
                   />
-                  <Typography variant="body1" sx={{ mb: 1, fontWeight: 500 }}>
+                  <Typography 
+                    variant={isVerySmall ? "caption" : "body1"} 
+                    sx={{ 
+                      mb: 1, 
+                      fontWeight: 500,
+                      fontSize: getFontSize(0.9)
+                    }}
+                  >
                     {searchTerm || filter !== 'all' 
                       ? "Niciun rezultat găsit" 
                       : "Nu există alți utilizatori disponibili"
                     }
                   </Typography>
                   <Typography 
-                    variant="body2" 
+                    variant={isVerySmall ? "caption" : "body2"} 
                     color="text.secondary"
-                    sx={{ maxWidth: 300, mx: 'auto' }}
+                    sx={{ 
+                      maxWidth: 300, 
+                      mx: 'auto',
+                      fontSize: getFontSize(isVerySmall ? 0.75 : 0.8)
+                    }}
                   >
                     {searchTerm 
                       ? "Încearcă alte cuvinte cheie sau resetează filtrele"
@@ -528,7 +601,10 @@ const UserList = ({ setSelectedUser }) => {
                         setSearchTerm('');
                         setFilter('all');
                       }}
-                      sx={{ mt: 2 }}
+                      sx={{ 
+                        mt: 2,
+                        fontSize: getFontSize(0.8)
+                      }}
                     >
                       Resetează filtrele
                     </Button>
@@ -537,8 +613,12 @@ const UserList = ({ setSelectedUser }) => {
               </Fade>
             )}
             {filteredUsers.length > 0 && (
-              <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">
+              <Box sx={{ p: isVerySmall ? 1 : 2, textAlign: 'center' }}>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "caption"} 
+                  color="text.secondary"
+                  sx={{ fontSize: getFontSize(0.7) }}
+                >
                   {filteredUsers.length} utilizatori afișați
                 </Typography>
               </Box>
