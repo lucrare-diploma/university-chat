@@ -38,7 +38,7 @@ const Message = ({
     handleMenuClose();
   };
 
-  // Formatul datei și orei pentru mesaje
+  // Formatarea datei și orei pentru mesaje
   const formatTime = (date) => {
     if (!date) return "";
     
@@ -47,7 +47,7 @@ const Message = ({
       const messageDate = date instanceof Date ? date : new Date(date);
       
       if (isNaN(messageDate.getTime())) {
-        return ""; // Data invalidă
+        return ""; 
       }
       
       return messageDate.toLocaleTimeString([], { 
@@ -104,11 +104,14 @@ const Message = ({
     }
   };
 
+  // Ajustăm dimensiunile în funcție de dimensiunea ecranului
   const avatarSize = isMobile ? 28 : 32;
-  const maxWidth = isMobile ? "70%" : "65%";
+  // Modificăm lățimea maximă pentru a ocupa mai mult spațiu pe ecrane mici
+  const maxWidth = isMobile ? "80%" : "65%";
   
-  // Adjust margins for grouped messages
+  // Ajustăm marginile pentru mesajele grupate
   const marginTop = isGroupedWithPrev ? 0.5 : 1.5;
+  const marginBottom = isGroupedWithNext ? 0.5 : 1.5;
   
   // Determine if we should show the message status
   const messageStatus = isOwn ? (
@@ -157,9 +160,9 @@ const Message = ({
       sx={{
         display: "flex",
         justifyContent: isOwn ? "flex-end" : "flex-start",
-        mb: isGroupedWithNext ? 0.5 : 1.5,
+        mb: marginBottom,
         mt: marginTop,
-        px: 0.5,
+        px: isMobile ? 0.25 : 0.5, // Ajustare pentru ecrane mici
         position: "relative"
       }}
     >
@@ -170,7 +173,7 @@ const Message = ({
               src={message.senderPhoto}
               alt={message.senderName}
               sx={{ 
-                mr: 1, 
+                mr: isMobile ? 0.5 : 1, // Ajustare pentru ecrane mici
                 width: avatarSize, 
                 height: avatarSize,
                 alignSelf: isGroupedWithPrev ? "center" : "flex-end",
@@ -182,7 +185,7 @@ const Message = ({
               {message.senderName?.charAt(0) || "U"}
             </Avatar>
           ) : (
-            <Box sx={{ width: avatarSize + 8, mr: 1 }} /> // Placeholder for avatar spacing
+            <Box sx={{ width: avatarSize + 8, mr: isMobile ? 0.5 : 1 }} /> // Placeholder for avatar spacing
           )}
         </>
       )}
@@ -192,7 +195,7 @@ const Message = ({
           <Paper
             elevation={isOwn ? 0 : 1}
             sx={{
-              p: isMobile ? 1.5 : 2,
+              p: isMobile ? 1 : 2, // Ajustare padding pentru ecrane mici
               backgroundColor: isOwn 
                 ? theme.palette.mode === 'dark' 
                   ? alpha(theme.palette.primary.dark, 0.8)
@@ -216,7 +219,7 @@ const Message = ({
             <Typography 
               variant="body1" 
               sx={{ 
-                fontSize: isMobile ? "0.95rem" : "1rem",
+                fontSize: isMobile ? "0.9rem" : "1rem", // Dimensiune font mai mică pe mobile
                 whiteSpace: "pre-wrap",
                 lineHeight: 1.4
               }}
@@ -237,15 +240,15 @@ const Message = ({
                 opacity: 0,
                 backgroundColor: theme.palette.background.paper,
                 boxShadow: 1,
-                width: 24,
-                height: 24,
+                width: isMobile ? 20 : 24, // Ajustare pentru ecrane mici
+                height: isMobile ? 20 : 24,
                 transition: "opacity 0.2s ease",
                 "&:hover": {
                   backgroundColor: theme.palette.action.hover
                 }
               }}
             >
-              <MoreVertIcon fontSize="small" sx={{ fontSize: "1rem" }} />
+              <MoreVertIcon fontSize="small" sx={{ fontSize: isMobile ? "0.8rem" : "1rem" }} />
             </IconButton>
             
             <Box 
@@ -259,7 +262,7 @@ const Message = ({
               <Tooltip title="Mesaj criptat end-to-end">
                 <LockOutlinedIcon 
                   sx={{ 
-                    fontSize: isMobile ? "0.6rem" : "0.7rem", 
+                    fontSize: isMobile ? "0.5rem" : "0.7rem", // Dimensiune mai mică pe mobile
                     mr: 0.5, 
                     opacity: 0.6,
                     color: isOwn ? "white" : "text.secondary"
@@ -271,7 +274,7 @@ const Message = ({
                 variant="caption" 
                 sx={{ 
                   opacity: 0.7,
-                  fontSize: isMobile ? "0.65rem" : "0.75rem",
+                  fontSize: isMobile ? "0.6rem" : "0.75rem", // Dimensiune mai mică pe mobile
                   color: isOwn ? "white" : "text.secondary",
                   display: "flex",
                   alignItems: "center"
@@ -352,7 +355,7 @@ const Message = ({
               src={message.senderPhoto}
               alt={message.senderName}
               sx={{ 
-                ml: 1, 
+                ml: isMobile ? 0.5 : 1, // Ajustare pentru ecrane mici
                 width: avatarSize, 
                 height: avatarSize,
                 alignSelf: isGroupedWithPrev ? "center" : "flex-end",
@@ -364,7 +367,7 @@ const Message = ({
               {message.senderName?.charAt(0) || "U"}
             </Avatar>
           ) : (
-            <Box sx={{ width: avatarSize + 8, ml: 1 }} /> // Placeholder for avatar spacing
+            <Box sx={{ width: avatarSize + 8, ml: isMobile ? 0.5 : 1 }} /> // Placeholder pentru spațierea avatarului
           )}
         </>
       )}

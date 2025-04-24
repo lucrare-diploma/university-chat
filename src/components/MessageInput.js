@@ -18,7 +18,8 @@ import {
   Chip,
   Typography,
   Fade,
-  Divider
+  Divider,
+  useMediaQuery
 } from "@mui/material";
 import SendIcon from "@mui/icons-material/Send";
 import EmojiEmotionsIcon from "@mui/icons-material/EmojiEmotions";
@@ -35,7 +36,7 @@ import { useAuth } from "../context/AuthContext";
 import { doc, getDoc } from "firebase/firestore";
 import { generateSuggestions, applySuggestion } from "../utils/suggestionUtils";
 
-// Common emojis for quick access
+// Emoji-uri comune pentru acces rapid
 const COMMON_EMOJIS = [
   "😊", "😂", "❤️", "👍", "🙏", "🔥", "✨", "😍", 
   "🤣", "😁", "👋", "👏", "🎉", "🤔", "👀", "😅",
@@ -63,6 +64,10 @@ const MessageInput = ({
   const fileInputRef = useRef(null);
   const theme = useTheme();
   const { currentUser } = useAuth();
+  
+  // Media queries suplimentare pentru diferite dimensiuni de ecran
+  const isExtraSmall = useMediaQuery(theme.breakpoints.down('xs'));
+  const isVerySmall = useMediaQuery('(max-width:380px)'); // Pentru telefoane foarte mici
 
   // Fetch user preferences
   useEffect(() => {
@@ -218,7 +223,7 @@ const MessageInput = ({
       component="form"
       onSubmit={handleSubmit}
       sx={{
-        p: isMobile ? 1.5 : 2,
+        p: isVerySmall ? 0.75 : (isMobile ? 1 : 2),
         backgroundColor: "background.paper",
         display: "flex",
         flexDirection: "column",
@@ -234,8 +239,8 @@ const MessageInput = ({
         <Fade in={shouldShowAISuggestions}>
           <Box 
             sx={{ 
-              mb: 2,
-              p: 1.5,
+              mb: isVerySmall ? 1 : 2,
+              p: isVerySmall ? 0.75 : 1.5,
               borderRadius: 2,
               bgcolor: alpha(theme.palette.primary.light, 0.07),
               border: `1px solid ${alpha(theme.palette.primary.main, 0.15)}`,
@@ -249,15 +254,19 @@ const MessageInput = ({
               }}
             >
               <SmartToyIcon 
-                fontSize="small" 
+                fontSize={isVerySmall ? "small" : "small"} 
                 color="primary" 
                 sx={{ mr: 1, opacity: 0.8 }} 
               />
-              <Typography variant="body2" color="primary.main" sx={{ fontWeight: 500 }}>
-                Sugestii de răspuns generate de AI
+              <Typography 
+                variant={isVerySmall ? "caption" : "body2"} 
+                color="primary.main" 
+                sx={{ fontWeight: 500 }}
+              >
+                {isVerySmall ? "Sugestii AI" : "Sugestii de răspuns generate de AI"}
               </Typography>
               {loadingSuggestions && (
-                <CircularProgress size={14} sx={{ ml: 1 }} />
+                <CircularProgress size={isVerySmall ? 10 : 14} sx={{ ml: 1 }} />
               )}
             </Box>
             
@@ -275,16 +284,19 @@ const MessageInput = ({
                 <Button
                   key={index}
                   variant="outlined"
-                  size="small"
+                  size={isVerySmall ? "small" : "small"}
                   onClick={() => handleAISuggestionClick(suggestion)}
-                  startIcon={<AutoAwesomeIcon fontSize="small" />}
+                  startIcon={
+                    !isVerySmall && <AutoAwesomeIcon fontSize="small" />
+                  }
                   sx={{
                     justifyContent: "flex-start",
                     textTransform: "none",
                     borderRadius: 2,
-                    py: 0.5,
-                    px: 1.5,
+                    py: isVerySmall ? 0.25 : 0.5,
+                    px: isVerySmall ? 0.75 : 1.5,
                     fontWeight: 400,
+                    fontSize: isVerySmall ? "0.7rem" : "0.8rem",
                     textAlign: "left",
                     borderColor: alpha(theme.palette.primary.main, 0.3),
                     "&:hover": {
@@ -293,7 +305,10 @@ const MessageInput = ({
                     }
                   }}
                 >
-                  {suggestion}
+                  {isVerySmall 
+                    ? (suggestion.length > 40 ? suggestion.substring(0, 37) + '...' : suggestion)
+                    : (suggestion.length > 80 ? suggestion.substring(0, 77) + '...' : suggestion)
+                  }
                 </Button>
               ))}
             </Box>
@@ -306,8 +321,8 @@ const MessageInput = ({
         <Paper 
           elevation={3} 
           sx={{ 
-            p: 1, 
-            mb: 1.5, 
+            p: isVerySmall ? 0.5 : 1, 
+            mb: isVerySmall ? 0.75 : 1.5, 
             display: "flex", 
             justifyContent: "space-around",
             borderRadius: 2,
@@ -317,8 +332,8 @@ const MessageInput = ({
           }}
         >
           <Tooltip title="Trimite imagine">
-            <IconButton color="primary" onClick={handlePhotoUpload}>
-              <InsertPhotoIcon />
+            <IconButton color="primary" onClick={handlePhotoUpload} size={isVerySmall ? "small" : "medium"}>
+              <InsertPhotoIcon fontSize={isVerySmall ? "small" : "medium"} />
             </IconButton>
           </Tooltip>
           <input
@@ -336,8 +351,9 @@ const MessageInput = ({
             <IconButton 
               color={recording ? "error" : "primary"} 
               onClick={toggleRecording}
+              size={isVerySmall ? "small" : "medium"}
             >
-              {recording ? <CloseIcon /> : <MicIcon />}
+              {recording ? <CloseIcon fontSize={isVerySmall ? "small" : "medium"} /> : <MicIcon fontSize={isVerySmall ? "small" : "medium"} />}
             </IconButton>
           </Tooltip>
         </Paper>
@@ -352,18 +368,18 @@ const MessageInput = ({
             border: 1, 
             borderColor: "error.main", 
             borderRadius: 3,
-            p: 1,
+            p: isVerySmall ? 0.5 : 1,
             bgcolor: alpha(theme.palette.error.main, 0.05),
             animation: "pulse 1.5s infinite"
           }}
         >
           <Box 
             sx={{ 
-              width: 10, 
-              height: 10, 
+              width: isVerySmall ? 6 : 10, 
+              height: isVerySmall ? 6 : 10, 
               borderRadius: "50%", 
               bgcolor: "error.main", 
-              mr: 1.5,
+              mr: isVerySmall ? 0.75 : 1.5,
               "@keyframes pulse": {
                 "0%": { opacity: 0.6 },
                 "50%": { opacity: 1 },
@@ -372,41 +388,43 @@ const MessageInput = ({
               animation: "pulse 1s infinite"
             }} 
           />
-          <Box sx={{ flexGrow: 1, typography: "body2" }}>
+          <Box sx={{ flexGrow: 1, typography: isVerySmall ? "caption" : "body2" }}>
             Înregistrare în curs...
           </Box>
-          <IconButton size="small" onClick={toggleRecording}>
-            <SendIcon fontSize="small" />
+          <IconButton size={isVerySmall ? "small" : "small"} onClick={toggleRecording}>
+            <SendIcon fontSize={isVerySmall ? "small" : "small"} />
           </IconButton>
-          <IconButton size="small" onClick={toggleRecording} color="error">
-            <CloseIcon fontSize="small" />
+          <IconButton size={isVerySmall ? "small" : "small"} onClick={toggleRecording} color="error">
+            <CloseIcon fontSize={isVerySmall ? "small" : "small"} />
           </IconButton>
         </Box>
       ) : (
         <Box sx={{ display: "flex", alignItems: "center", flexDirection: "column", width: "100%" }}>
           {/* Text input */}
           <Box sx={{ display: "flex", alignItems: "center", width: "100%" }}>
-            {!isMobile && (
+            {/* Butonul de atașare este ascuns pe ecrane foarte mici pentru a economisi spațiu */}
+            {!isVerySmall && !isMobile && (
               <IconButton 
-                sx={{ mr: 1 }} 
+                sx={{ mr: 0.5 }} 
                 color={showAttachOptions ? "primary" : "default"}
                 onClick={handleAttachClick}
+                size={isVerySmall ? "small" : "medium"}
               >
-                <AttachFileIcon />
+                <AttachFileIcon fontSize={isVerySmall ? "small" : "medium"} />
               </IconButton>
             )}
             
             <TextField
               fullWidth
               variant="outlined"
-              placeholder="Scrie un mesaj criptat..."
+              placeholder={isVerySmall ? "Scrie un mesaj..." : "Scrie un mesaj criptat..."}
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyDown={handleKeyDown}
               inputRef={inputRef}
               multiline
-              maxRows={3}
-              size={isMobile ? "small" : "medium"}
+              maxRows={isVerySmall ? 2 : 3}
+              size="small"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -416,6 +434,7 @@ const MessageInput = ({
                         color="success" 
                         sx={{ 
                           opacity: 0.7,
+                          fontSize: isVerySmall ? "0.6rem" : "0.8rem",
                           animation: message.length > 0 ? "none" : "pulse 2s infinite",
                           "@keyframes pulse": {
                             "0%": {
@@ -450,24 +469,24 @@ const MessageInput = ({
                       size="small"
                       onClick={handleEmojiClick}
                     >
-                      <EmojiEmotionsIcon />
+                      <EmojiEmotionsIcon fontSize={isVerySmall ? "small" : "medium"} />
                     </IconButton>
                   </InputAdornment>
                 )
               }}
               sx={{ 
-                mr: 1,
+                mr: 0.5,
                 "& .MuiOutlinedInput-root": {
                   borderRadius: 3,
-                  fontSize: isMobile ? "0.95rem" : "1rem",
+                  fontSize: isVerySmall ? "0.8rem" : (isMobile ? "0.9rem" : "1rem"),
                   transition: "all 0.2s ease",
                   "&.Mui-focused": {
                     boxShadow: `0 0 0 2px ${alpha(theme.palette.primary.main, 0.2)}`
                   }
                 },
                 "& .MuiInputBase-inputMultiline": {
-                  // Limit the height of multiline input on mobile to avoid keyboard issues
-                  maxHeight: isMobile ? "80px" : "120px",
+                  // Limitează înălțimea input-ului multiline pe mobile pentru a evita probleme cu tastatura
+                  maxHeight: isVerySmall ? "40px" : (isMobile ? "60px" : "120px"),
                 }
               }}
               autoFocus
@@ -479,15 +498,15 @@ const MessageInput = ({
                   color="primary" 
                   type="submit" 
                   disabled={!message.trim() || sending}
-                  size={isMobile ? "medium" : "large"}
+                  size={isVerySmall ? "small" : (isMobile ? "medium" : "large")}
                   sx={{
                     backgroundColor: message.trim() && !sending ? "primary.main" : "action.disabledBackground",
                     color: "white",
                     "&:hover": {
                       backgroundColor: "primary.dark",
                     },
-                    width: isMobile ? 40 : 48,
-                    height: isMobile ? 40 : 48,
+                    width: isVerySmall ? 32 : (isMobile ? 36 : 48),
+                    height: isVerySmall ? 32 : (isMobile ? 36 : 48),
                     transition: "all 0.2s ease",
                     boxShadow: 2,
                     "&:hover": {
@@ -499,21 +518,27 @@ const MessageInput = ({
                     }
                   }}
                 >
-                  {sending ? <CircularProgress size={24} color="inherit" /> : <SendIcon />}
+                  {sending ? 
+                    <CircularProgress size={isVerySmall ? 16 : 24} color="inherit" /> : 
+                    <SendIcon fontSize={isVerySmall ? "small" : "medium"} />
+                  }
                 </IconButton>
               </Zoom>
             ) : (
               <IconButton 
                 color="primary"
                 onClick={toggleRecording}
-                size={isMobile ? "medium" : "large"}
+                size={isVerySmall ? "small" : (isMobile ? "medium" : "large")}
                 sx={{
-                  width: isMobile ? 40 : 48,
-                  height: isMobile ? 40 : 48,
+                  width: isVerySmall ? 32 : (isMobile ? 36 : 48),
+                  height: isVerySmall ? 32 : (isMobile ? 36 : 48),
                   transition: "all 0.2s ease"
                 }}
               >
-                {recording ? <KeyboardIcon /> : <MicIcon />}
+                {recording ? 
+                  <KeyboardIcon fontSize={isVerySmall ? "small" : "medium"} /> : 
+                  <MicIcon fontSize={isVerySmall ? "small" : "medium"} />
+                }
               </IconButton>
             )}
           </Box>
@@ -524,8 +549,8 @@ const MessageInput = ({
               sx={{ 
                 display: "flex", 
                 flexWrap: "wrap", 
-                gap: 1, 
-                mt: 1.5, 
+                gap: isVerySmall ? 0.5 : 1, 
+                mt: isVerySmall ? 0.75 : 1.5, 
                 width: "100%",
                 justifyContent: "center",
                 animation: "fadeIn 0.3s ease-in-out",
@@ -535,7 +560,7 @@ const MessageInput = ({
                 }
               }}
             >
-              {wordSuggestions.slice(0, 3).map((suggestion, index) => (
+              {wordSuggestions.slice(0, isVerySmall ? 2 : 3).map((suggestion, index) => (
                 <Chip
                   key={index}
                   label={
@@ -543,11 +568,11 @@ const MessageInput = ({
                       <Box 
                         component="span" 
                         sx={{ 
-                          fontSize: '0.7rem', 
+                          fontSize: isVerySmall ? '0.6rem' : '0.7rem', 
                           bgcolor: 'rgba(0,0,0,0.1)', 
                           borderRadius: '50%',
-                          width: 16, 
-                          height: 16, 
+                          width: isVerySmall ? 14 : 16, 
+                          height: isVerySmall ? 14 : 16, 
                           display: 'flex', 
                           alignItems: 'center', 
                           justifyContent: 'center',
@@ -567,6 +592,8 @@ const MessageInput = ({
                   sx={{ 
                     borderRadius: 1.5,
                     transition: "all 0.2s",
+                    fontSize: isVerySmall ? "0.65rem" : "0.75rem",
+                    height: isVerySmall ? 24 : 28,
                     "&:hover": {
                       backgroundColor: alpha(theme.palette.primary.main, 0.1),
                       transform: "translateY(-2px)"
@@ -595,8 +622,8 @@ const MessageInput = ({
         }}
         sx={{ mt: -1 }}
       >
-        <Paper sx={{ p: 1.5, maxWidth: 270 }}>
-          <Grid container spacing={1}>
+        <Paper sx={{ p: isVerySmall ? 0.75 : 1.5, maxWidth: isVerySmall ? 240 : 270 }}>
+          <Grid container spacing={isVerySmall ? 0.5 : 1}>
             {COMMON_EMOJIS.map((emoji, index) => (
               <Grid item key={index}>
                 <Button
@@ -604,8 +631,8 @@ const MessageInput = ({
                   onClick={() => addEmoji(emoji)}
                   sx={{ 
                     minWidth: 'auto', 
-                    fontSize: '1.2rem',
-                    p: 0.5,
+                    fontSize: isVerySmall ? '1rem' : '1.2rem',
+                    p: isVerySmall ? 0.3 : 0.5,
                     borderRadius: 1,
                     "&:hover": {
                       backgroundColor: alpha(theme.palette.primary.main, 0.1)
