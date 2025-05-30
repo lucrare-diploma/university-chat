@@ -1,5 +1,7 @@
 // Encryption utilities for secure message handling
 import CryptoJS from 'crypto-js';
+import { getDoc, doc } from 'firebase/firestore';
+import { db } from "../firebase/config";
 
 /**
  * Encrypts a message text using AES encryption
@@ -56,4 +58,39 @@ export const generateChatKey = (userId1, userId2) => {
   // Create a deterministic key based on both user IDs
   // In a production app, you might want a more sophisticated key generation mechanism
   return CryptoJS.SHA256(`${sortedIds[0]}_${sortedIds[1]}_encryption_key`).toString();
+};
+
+/**
+ * Generează ID-ul chat-ului pentru grupuri
+ */
+export const generateGroupChatId = (groupId) => {
+  return `group_${groupId}`;
+};
+
+/**
+ * Obține cheia de criptare pentru o conversație (DM sau grup)
+ */
+export const getChatEncryptionKey = async (chatId, chatType = 'dm', groupId = null) => {
+  if (chatType === 'dm') {
+    // Pentru DM-uri, folosim sistemul existent
+    const userIds = chatId.split('_').filter(id => id !== 'self');
+    if (userIds.length === 1) {
+      // Chat cu sine
+      return generateChatKey(userIds[0], userIds[0]);
+    }
+    return generateChatKey(userIds[0], userIds[1]);
+  } else if (chatType === 'group') {
+    // Pentru grupuri, obținem cheia din documentul grupului
+    try {
+      const groupDoc = await getDoc(doc(db, "groups", groupId));
+      if (groupDoc.exists()) {
+        return groupDoc.data().encryptionKey;
+      } else {
+        throw new Error("Grupul nu există");
+      }
+    } catch (error) {
+      console.error("Eroare la obținerea cheii de grup:", error);
+      throw error;
+    }
+  }
 };
