@@ -1,3 +1,5 @@
+import { getDoc, doc } from 'firebase/firestore';
+import { getChatEncryptionKey, generateGroupChatId } from '../utils/encryption';
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Box,
@@ -40,8 +42,6 @@ import {
   limit,
   getDocs,
   updateDoc,
-  doc,
-  getDoc,
   setDoc,
   writeBatch
 } from "firebase/firestore";
@@ -88,7 +88,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
   const getChatId = useCallback(() => {
-    // Pentru chat cu sine folosim un format special
+    // Pentru grupuri
+    if (selectedUser?.type === 'group') {
+      return generateGroupChatId(selectedUser.id);
+    }
+    
+    // Pentru chat cu sine
     if (isSelfChat) {
       return `self_${currentUser.uid}`;
     }
@@ -100,12 +105,32 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
   // Generate encryption key for this chat when users are selected
   useEffect(() => {
-    if (currentUser && selectedUser) {
-      const key = generateChatKey(currentUser.uid, selectedUser.id);
-      setChatKey(key);
-      console.log("Cheia de criptare a fost generată pentru conversație");
-    }
-  }, [currentUser, selectedUser]);
+    const generateChatKey = async () => {
+      if (currentUser && selectedUser) {
+        try {
+          let key;
+          if (selectedUser.type === 'group') {
+            // Pentru grupuri, obținem cheia din baza de date
+            key = await getChatEncryptionKey(
+              getChatId(), 
+              'group', 
+              selectedUser.id
+            );
+          } else {
+            // Pentru DM-uri, folosim sistemul existent
+            key = await getChatEncryptionKey(getChatId(), 'dm');
+          }
+          setChatKey(key);
+          console.log("Cheia de criptare a fost generată pentru conversație");
+        } catch (error) {
+          console.error("Eroare la generarea cheii de criptare:", error);
+          setError("Nu s-a putut stabili criptarea pentru această conversație");
+        }
+      }
+    };
+  
+    generateChatKey();
+  }, [currentUser, selectedUser, getChatId]);
 
   // Verifică dacă utilizatorul are activată funcționalitatea AI
   useEffect(() => {

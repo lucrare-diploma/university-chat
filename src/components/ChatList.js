@@ -1,3 +1,4 @@
+// src/components/ChatList.js - Versiune actualizată cu suport pentru grupuri
 import React, { useState, useEffect } from "react";
 import { 
   Box, 
@@ -11,23 +12,55 @@ import {
   Slide,
   Collapse,
   Tooltip,
-  IconButton
+  IconButton,
+  Tabs,
+  Tab,
+  Badge,
+  Typography
 } from "@mui/material";
 import ChatIcon from "@mui/icons-material/Chat";
 import CloseIcon from "@mui/icons-material/Close";
 import MenuIcon from "@mui/icons-material/Menu";
+import GroupIcon from "@mui/icons-material/Group";
+import PersonIcon from "@mui/icons-material/Person";
 import UserList from "./UserList";
+import GroupList from "./GroupList"; // Componenta nouă pe care o vom crea
 import Chat from "./Chat";
 import { useAuth } from "../context/AuthContext";
 
+// Componenta pentru tab-uri personalizate cu iconițe și contoare
+function TabPanel({ children, value, index, ...other }) {
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`chat-tabpanel-${index}`}
+      aria-labelledby={`chat-tab-${index}`}
+      {...other}
+      style={{ height: '100%' }}
+    >
+      {value === index && (
+        <Box sx={{ height: '100%' }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
 const ChatList = () => {
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedTab, setSelectedTab] = useState(0); // 0 = utilizatori, 1 = grupuri
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmall = useMediaQuery(theme.breakpoints.down("sm"));
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showFab, setShowFab] = useState(false);
   const { currentUser } = useAuth();
+
+  // State pentru contoarele de pe tab-uri (opțional, pentru a arăta câte conversații/grupuri sunt)
+  const [userCount, setUserCount] = useState(0);
+  const [groupCount, setGroupCount] = useState(0);
 
   // Toggle FAB visibility
   useEffect(() => {
@@ -39,6 +72,7 @@ const ChatList = () => {
   }, [isMobile, sidebarOpen, selectedUser]);
 
   const handleSelectUser = (user) => {
+    console.log("Utilizator/grup selectat:", user);
     setSelectedUser(user);
     setSidebarOpen(false);
   };
@@ -55,6 +89,13 @@ const ChatList = () => {
 
   const toggleSidebar = () => {
     setSidebarOpen(!sidebarOpen);
+  };
+
+  // Funcție pentru a schimba tab-ul
+  const handleTabChange = (event, newValue) => {
+    setSelectedTab(newValue);
+    // Când schimbăm tab-ul, resetăm selecția
+    setSelectedUser(null);
   };
 
   // Close sidebar on escape key
@@ -107,7 +148,7 @@ const ChatList = () => {
       position: "relative",
       overflow: "hidden"
     }}>
-      {/* Drawer pentru lista de conversații (afișat când este deschis) */}
+      {/* Drawer pentru lista de conversații */}
       <Drawer
         anchor="left"
         open={sidebarOpen}
@@ -117,11 +158,88 @@ const ChatList = () => {
             width: isMobile ? '100%' : 350,
             height: '100%',
             boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
           },
         }}
       >
-        <Box sx={{ height: '100%' }}>
-          <UserList setSelectedUser={handleSelectUser} />
+        <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          {/* Header cu tab-uri */}
+          <Box sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            bgcolor: 'background.paper'
+          }}>
+            <Tabs 
+              value={selectedTab} 
+              onChange={handleTabChange}
+              variant="fullWidth"
+              indicatorColor="primary"
+              textColor="primary"
+            >
+              <Tab 
+                icon={<PersonIcon />} 
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    Utilizatori
+                    {userCount > 0 && (
+                      <Badge 
+                        badgeContent={userCount} 
+                        color="primary" 
+                        size="small"
+                        sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', minWidth: '16px', height: '16px' } }}
+                      />
+                    )}
+                  </Box>
+                }
+                iconPosition="start"
+                sx={{ 
+                  minHeight: 48,
+                  textTransform: 'none',
+                  fontSize: '0.9rem'
+                }}
+              />
+              <Tab 
+                icon={<GroupIcon />} 
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    Grupuri
+                    {groupCount > 0 && (
+                      <Badge 
+                        badgeContent={groupCount} 
+                        color="secondary" 
+                        size="small"
+                        sx={{ '& .MuiBadge-badge': { fontSize: '0.6rem', minWidth: '16px', height: '16px' } }}
+                      />
+                    )}
+                  </Box>
+                }
+                iconPosition="start"
+                sx={{ 
+                  minHeight: 48,
+                  textTransform: 'none',
+                  fontSize: '0.9rem'
+                }}
+              />
+            </Tabs>
+          </Box>
+
+          {/* Conținutul tab-urilor */}
+          <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+            <TabPanel value={selectedTab} index={0}>
+              <UserList 
+                setSelectedUser={handleSelectUser}
+                onUserCountChange={setUserCount} // Pentru a actualiza contorul
+              />
+            </TabPanel>
+            <TabPanel value={selectedTab} index={1}>
+              <GroupList 
+                onSelectGroup={handleSelectUser}
+                selectedChat={selectedUser}
+                onGroupCountChange={setGroupCount} // Pentru a actualiza contorul
+              />
+            </TabPanel>
+          </Box>
         </Box>
       </Drawer>
 
@@ -174,9 +292,15 @@ const ChatList = () => {
                     boxShadow: 3,
                   }}
                 >
-                  <Box sx={{ mb: 2 }}>
-                    Selectează o conversație pentru a începe
-                  </Box>
+                  <Typography variant="h6" gutterBottom>
+                    Bine ai venit în USV Chat!
+                  </Typography>
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    {selectedTab === 0 
+                      ? "Selectează un utilizator pentru a începe o conversație privată"
+                      : "Creează un grup nou sau alătură-te la unul existent pentru a începe să colaborezi"
+                    }
+                  </Typography>
                   <Fab
                     color="primary"
                     variant="extended"
@@ -184,7 +308,7 @@ const ChatList = () => {
                     onClick={toggleSidebar}
                   >
                     <MenuIcon sx={{ mr: 1 }} />
-                    Deschide conversațiile
+                    {selectedTab === 0 ? 'Vezi utilizatorii' : 'Vezi grupurile'}
                   </Fab>
                 </Paper>
               </Box>
@@ -199,7 +323,7 @@ const ChatList = () => {
       {/* FAB pentru a reveni la lista de utilizatori (pe mobil) */}
       <Zoom in={showFab}>
         <Box sx={{ position: "fixed", bottom: 16, right: 16, zIndex: 1000 }}>
-          <Tooltip title="Înapoi la lista de utilizatori">
+          <Tooltip title="Înapoi la conversații">
             <Fab
               color="primary"
               size={isSmall ? "medium" : "large"}
