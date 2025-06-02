@@ -1,7 +1,6 @@
-// src/components/Chat.js
 import { getDoc, doc } from 'firebase/firestore';
 import { getChatEncryptionKey, generateGroupChatId } from '../utils/encryption';
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -95,6 +94,38 @@ const Chat = () => {
   const isPortrait = useMediaQuery('(orientation: portrait)');
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
+  // Verifică dacă utilizatorul actual este într-o conversație cu sine
+  const isSelfChat = useMemo(() => {
+    return selectedUser?.isSelf || selectedUser?.id === currentUser?.uid;
+  }, [selectedUser, currentUser]);
+
+  // Generează ID-ul conversației - FIXAT cu useMemo
+  const chatId = useMemo(() => {
+    if (!selectedUser || !currentUser) return '';
+    
+    console.log("Calculez chatId pentru:", selectedUser);
+    
+    // Pentru grupuri
+    if (selectedUser.type === 'group') {
+      const groupChatId = generateGroupChatId(selectedUser.id);
+      console.log("ChatId pentru grup:", groupChatId);
+      return groupChatId;
+    }
+    
+    // Pentru chat cu sine
+    if (isSelfChat) {
+      const selfChatId = `self_${currentUser.uid}`;
+      console.log("ChatId pentru self:", selfChatId);
+      return selfChatId;
+    }
+    
+    // Pentru chat-ul normal între doi utilizatori
+    const ids = [currentUser.uid, selectedUser.id].sort();
+    const dmChatId = `${ids[0]}_${ids[1]}`;
+    console.log("ChatId pentru DM:", dmChatId);
+    return dmChatId;
+  }, [currentUser, selectedUser, isSelfChat]);
+
   // Încărcare date utilizator/grup bazat pe parametrii URL
   useEffect(() => {
     const loadChatData = async () => {
@@ -175,47 +206,26 @@ const Chat = () => {
     loadChatData();
   }, [userId, groupId, currentUser, navigate]);
 
-  // Verifică dacă utilizatorul actual este într-o conversație cu sine
-  const isSelfChat = selectedUser?.isSelf || selectedUser?.id === currentUser?.uid;
-
-  // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
-  const getChatId = useCallback(() => {
-    if (!selectedUser) return '';
-    
-    // Pentru grupuri
-    if (selectedUser.type === 'group') {
-      return generateGroupChatId(selectedUser.id);
-    }
-    
-    // Pentru chat cu sine
-    if (isSelfChat) {
-      return `self_${currentUser.uid}`;
-    }
-    
-    // Pentru chat-ul normal între doi utilizatori
-    const ids = [currentUser.uid, selectedUser.id].sort();
-    return `${ids[0]}_${ids[1]}`;
-  }, [currentUser, selectedUser, isSelfChat]);
-
-  // Generate encryption key for this chat when users are selected
+  // FIXAT: Generate encryption key for this chat when users are selected
   useEffect(() => {
-    const generateChatKey = async () => {
-      if (currentUser && selectedUser && !loadingUserData) {
+    const generateKey = async () => {
+      if (currentUser && selectedUser && !loadingUserData && chatId) {
         try {
+          console.log("Generez cheia de criptare pentru chatId:", chatId, "tip:", selectedUser.type);
+          
           let key;
           if (selectedUser.type === 'group') {
-            // Pentru grupuri, obținem cheia din baza de date
-            key = await getChatEncryptionKey(
-              getChatId(), 
-              'group', 
-              selectedUser.id
-            );
+            // Pentru grupuri, obținem cheia din documentul grupului
+            console.log("Obțin cheia pentru grup:", selectedUser.id);
+            key = await getChatEncryptionKey(chatId, 'group', selectedUser.id);
           } else {
             // Pentru DM-uri, folosim sistemul existent
-            key = await getChatEncryptionKey(getChatId(), 'dm');
+            console.log("Generez cheia pentru DM");
+            key = await getChatEncryptionKey(chatId, 'dm');
           }
+          
           setChatKey(key);
-          console.log("Cheia de criptare a fost generată pentru conversație");
+          console.log("Cheia de criptare a fost setată pentru conversație");
         } catch (error) {
           console.error("Eroare la generarea cheii de criptare:", error);
           setError("Nu s-a putut stabili criptarea pentru această conversație");
@@ -223,8 +233,8 @@ const Chat = () => {
       }
     };
   
-    generateChatKey();
-  }, [currentUser, selectedUser, getChatId, loadingUserData]);
+    generateKey();
+  }, [currentUser, selectedUser, chatId, loadingUserData]);
 
   // Verifică dacă utilizatorul are activată funcționalitatea AI
   useEffect(() => {
@@ -297,13 +307,12 @@ const Chat = () => {
 
   // Load more messages (for scrollback)
   const loadMoreMessages = async () => {
-    if (loadingMore || loadedAll || !chatKey) return;
+    if (loadingMore || loadedAll || !chatKey || !chatId) return;
 
     try {
       setLoadingMore(true);
       prevScrollHeightRef.current = messagesContainerRef.current?.scrollHeight || 0;
 
-      const chatId = getChatId();
       const messagesRef = collection(db, "messages");
       const q = query(
         messagesRef,
@@ -356,16 +365,26 @@ const Chat = () => {
     }
   };
 
-  // Încarcă mesajele în timp real
+  // FIXAT: Încarcă mesajele în timp real
   useEffect(() => {
-    if (!selectedUser || !currentUser || !chatKey || loadingUserData) return;
+    if (!selectedUser || !currentUser || !chatKey || loadingUserData || !chatId) {
+      console.log("Nu pot încărca mesajele - lipsesc dependențele:", {
+        selectedUser: !!selectedUser,
+        currentUser: !!currentUser,
+        chatKey: !!chatKey,
+        loadingUserData,
+        chatId
+      });
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
     try {
-      console.log("Încărcare mesaje pentru conversația:", getChatId());
-      const chatId = getChatId();
+      console.log("=== Configurez listener pentru mesaje ===");
+      console.log("ChatId:", chatId);
+      console.log("Tip chat:", selectedUser.type);
 
       const messagesRef = collection(db, "messages");
       const q = query(
@@ -375,14 +394,26 @@ const Chat = () => {
         limit(messagesLimit)
       );
 
-      console.log("Configurez listener pentru mesaje...");
+      console.log("Query configurat pentru chatId:", chatId);
+      
       const unsubscribe = onSnapshot(q, (snapshot) => {
-        console.log("Snapshot de mesaje primit, număr:", snapshot.size);
+        console.log("=== Snapshot de mesaje primit ===");
+        console.log("Număr mesaje:", snapshot.size);
+        console.log("ChatId folosit în query:", chatId);
+        
         const messagesList = [];
         const decryptedList = [];
 
         snapshot.forEach((doc) => {
           const messageData = doc.data();
+          console.log("Mesaj găsit:", {
+            id: doc.id,
+            chatId: messageData.chatId,
+            senderId: messageData.senderId,
+            text: messageData.text.substring(0, 50) + "...",
+            createdAt: messageData.createdAt
+          });
+
           // Verific dacă createdAt există și este un timestamp valid
           const createdAt = messageData.createdAt ?
             (messageData.createdAt.toDate ? messageData.createdAt.toDate() : messageData.createdAt)
@@ -393,6 +424,7 @@ const Chat = () => {
           try {
             if (messageData.encrypted) {
               decryptedText = decryptMessage(messageData.text, chatKey);
+              console.log("Mesaj decriptat cu succes");
             }
           } catch (error) {
             console.error("Eroare la decriptarea mesajului:", error);
@@ -436,7 +468,7 @@ const Chat = () => {
       });
 
       return () => {
-        console.log("Curățare listener mesaje");
+        console.log("Curățare listener mesaje pentru chatId:", chatId);
         unsubscribe();
       };
     } catch (error) {
@@ -444,10 +476,10 @@ const Chat = () => {
       setError("Eroare la configurare: " + error.message);
       setLoading(false);
     }
-  }, [currentUser, selectedUser, getChatId, chatKey, messagesLimit, loadingUserData]);
+  }, [currentUser, selectedUser, chatId, chatKey, messagesLimit, loadingUserData, aiEnabled]);
 
   // Generează sugestii de la API-ul AI
-  const generateAISuggestions = async (chatId, messages) => {
+  const generateAISuggestions = async (currentChatId, messages) => {
     // Nu generăm sugestii pentru conversațiile cu sine
     if (isSelfChat || !aiEnabled) {
       setAiSuggestions([]);
@@ -466,7 +498,7 @@ const Chat = () => {
       // Verifică disponibilitatea API-ului AI
       let suggestions = [];
       if (isAIAvailable()) {
-        suggestions = await getAISuggestions(chatId, currentUser.uid, messages);
+        suggestions = await getAISuggestions(currentChatId, currentUser.uid, messages);
       } else {
         console.log("API-ul AI nu este disponibil, se folosesc sugestii locale");
         suggestions = getLocalSuggestions(messages);
@@ -484,13 +516,12 @@ const Chat = () => {
   // Marcarea mesajelor ca fiind citite când se deschide conversația
   useEffect(() => {
     const markMessagesAsRead = async () => {
-      if (!selectedUser || !currentUser || loadingUserData) return;
+      if (!selectedUser || !currentUser || loadingUserData || !chatId) return;
       
       // Dacă este chat cu sine, nu e necesar să marcăm mesajele ca fiind citite
       if (isSelfChat) return;
 
       try {
-        const chatId = getChatId();
         const batch = writeBatch(db);
         let unreadCount = 0;
 
@@ -538,7 +569,7 @@ const Chat = () => {
     };
 
     markMessagesAsRead();
-  }, [currentUser, selectedUser, getChatId, isSelfChat, loadingUserData]);
+  }, [currentUser, selectedUser, chatId, isSelfChat, loadingUserData]);
 
   // Derulează automat la ultimul mesaj când se adaugă mesaje noi
   useEffect(() => {
@@ -561,13 +592,24 @@ const Chat = () => {
     );
   };
 
-  // Trimite un mesaj
+  // FIXAT: Trimite un mesaj
   const handleSendMessage = async (text) => {
-    if (!text.trim() || !currentUser || !selectedUser || !chatKey) return;
+    if (!text.trim() || !currentUser || !selectedUser || !chatKey || !chatId) {
+      console.log("Nu pot trimite mesajul - lipsesc dependențele:", {
+        text: !!text.trim(),
+        currentUser: !!currentUser,
+        selectedUser: !!selectedUser,
+        chatKey: !!chatKey,
+        chatId
+      });
+      return;
+    }
 
     try {
-      const chatId = getChatId();
-      console.log("Trimit mesaj criptat în chat ID:", chatId);
+      console.log("=== Trimit mesaj ===");
+      console.log("ChatId:", chatId);
+      console.log("Tip chat:", selectedUser.type);
+      console.log("Text:", text.substring(0, 50) + "...");
 
       // Encrypt the message before saving to Firestore
       const encryptedText = encryptMessage(text, chatKey);
@@ -575,6 +617,8 @@ const Chat = () => {
       if (!encryptedText) {
         throw new Error("Encryption failed");
       }
+
+      console.log("Mesaj criptat cu succes");
 
       // Determinăm receiverId bazat pe tipul de chat
       let receiverId;
@@ -586,19 +630,28 @@ const Chat = () => {
         receiverId = selectedUser.id; // Pentru chat individual
       }
 
+      console.log("ReceiverId:", receiverId);
+
       // Adaugă mesajul în colecția de mesaje
-      await addDoc(collection(db, "messages"), {
+      const messageData = {
         text: encryptedText,
         encrypted: true, // Flag that indicates this message is encrypted
         senderId: currentUser.uid,
         receiverId: receiverId,
         senderName: currentUser.displayName || "Utilizator",
         senderPhoto: currentUser.photoURL,
-        chatId,
+        chatId: chatId, // IMPORTANT: folosim chatId calculat
         createdAt: serverTimestamp(),
         read: isSelfChat, // Marcăm deja ca citit dacă este chat cu sine
         delivered: true // Marcăm mesajul ca livrat
+      };
+
+      console.log("Date mesaj de salvat:", {
+        ...messageData,
+        text: "***CRIPTAT***"
       });
+
+      await addDoc(collection(db, "messages"), messageData);
 
       // Incrementează contorul de mesaje necitite pentru destinatar doar dacă nu e chat cu sine și nu e grup
       if (!isSelfChat && selectedUser.type !== 'group') {
@@ -627,7 +680,7 @@ const Chat = () => {
         }
       }
 
-      console.log("Mesaj criptat trimis cu succes");
+      console.log("Mesaj salvat cu succes în Firestore");
       scrollToBottom("smooth");
       
       // Resetăm sugestiile după ce utilizatorul trimite un mesaj
