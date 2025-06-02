@@ -29,7 +29,7 @@ const AppRouter = ({ initialError }) => {
       
       {/* Ruta principală - lista de chat-uri (protejată) */}
       <Route 
-        path="/" 
+        path="/university-chat" 
         element={
           <ProtectedRoute>
             <ChatList />
@@ -81,7 +81,7 @@ const AppRouter = ({ initialError }) => {
       <Route path="/404" element={<NotFound />} />
       
       {/* Redirect pentru rute inexistente */}
-      <Route path="*" element={<Navigate to="/404" replace />} />
+      <Route path="/university-chat" element={<Navigate to="/404" replace />} />
     </Routes>
   );
 };
