@@ -480,6 +480,9 @@ function AuthenticatedLayout({ children }) {
 }
 
 // Conținut bazat pe starea autentificării cu verificare de acces
+// src/App.js (Partea modificată)
+// Înlocuiește funcția AppContent cu aceasta:
+
 function AppContent() {
   const { currentUser, logout } = useAuth();
   const [accessChecked, setAccessChecked] = useState(false);
@@ -524,10 +527,10 @@ function AppContent() {
     );
   }
 
-  // Dacă utilizatorul este autentificat, afișăm layout-ul autentificat cu routing
+  // Întotdeauna returnăm router-ul, care va gestiona autentificarea
   return currentUser ? (
     <AuthenticatedLayout>
-      <AppRouter />
+      <AppRouter initialError={accessError} />
     </AuthenticatedLayout>
   ) : (
     <AppRouter initialError={accessError} />

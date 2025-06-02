@@ -50,7 +50,7 @@ const ProtectedRoute = ({ children }) => {
     );
   }
 
-  // Redirect to auth if not authenticated or no access
+  // Redirect to /auth if not authenticated or no access
   if (!currentUser || !hasAccess) {
     return <Navigate to="/auth" replace />;
   }

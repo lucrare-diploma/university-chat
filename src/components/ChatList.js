@@ -27,6 +27,7 @@ import UserList from "./UserList";
 import GroupList from "./GroupList"; // Componenta nouă pe care o vom crea
 import Chat from "./Chat";
 import { useAuth } from "../context/AuthContext";
+import { useNavigate } from 'react-router-dom';
 
 // Componenta pentru tab-uri personalizate cu iconițe și contoare
 function TabPanel({ children, value, index, ...other }) {
@@ -57,6 +58,7 @@ const ChatList = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showFab, setShowFab] = useState(false);
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   // State pentru contoarele de pe tab-uri (opțional, pentru a arăta câte conversații/grupuri sunt)
   const [userCount, setUserCount] = useState(0);
@@ -72,8 +74,19 @@ const ChatList = () => {
   }, [isMobile, sidebarOpen, selectedUser]);
 
   const handleSelectUser = (user) => {
+      // console.log("Utilizator/grup selectat:", user);
+      // setSelectedUser(user);
+      // setSidebarOpen(false);
     console.log("Utilizator/grup selectat:", user);
-    setSelectedUser(user);
+    
+    if (user.type === 'group') {
+      // Navigare către grup
+      navigate(`/group/${user.id}`);
+    } else {
+      // Navigare către chat individual
+      navigate(`/chat/${user.id}`);
+    }
+    
     setSidebarOpen(false);
   };
 

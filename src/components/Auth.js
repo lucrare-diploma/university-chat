@@ -23,6 +23,8 @@ import InfoIcon from "@mui/icons-material/Info";
 import { useAuth } from "../context/AuthContext";
 import logo from "../logo.svg";
 import { isAllowedEmail } from "../utils/accessControl";
+import { useNavigate, useLocation } from 'react-router-dom';
+
 
 const Auth = ({ initialError }) => {
   const { signInWithGoogle, logout } = useAuth();
@@ -31,6 +33,8 @@ const Auth = ({ initialError }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(initialError || "");
   const [showSecurityInfo, setShowSecurityInfo] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     if (initialError) {
@@ -54,6 +58,10 @@ const Auth = ({ initialError }) => {
           // Deconectăm utilizatorul și afișăm eroare
           await logout();
           setError("Acces permis doar pentru adrese de email din domeniile usv.ro sau usm.ro.");
+        } else {
+          // Navigăm către pagina dorită sau home
+          const from = location.state?.from?.pathname || '/';
+          navigate(from, { replace: true });
         }
       }
     } catch (error) {
