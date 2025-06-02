@@ -1,4 +1,6 @@
+// src/App.js (Updated)
 import React, { useState, useEffect } from "react";
+import { BrowserRouter } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { AIProvider } from "./context/AIContext";
 import {
@@ -21,7 +23,6 @@ import {
   Zoom,
   Badge,
   CircularProgress,
-  Alert,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
 import LogoutIcon from "@mui/icons-material/Logout";
@@ -31,10 +32,8 @@ import InfoIcon from "@mui/icons-material/Info";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase/config";
-import Auth from "./components/Auth";
-import ChatList from "./components/ChatList";
-import Profile from "./components/Profile";
-import About from "./components/About";
+import { useNavigate, useLocation } from "react-router-dom";
+import AppRouter from "./routes/AppRouter";
 
 // Funcții utilitare pentru verificarea accesului (încorporate direct în App.js)
 const isAllowedEmail = (email) => {
@@ -127,13 +126,14 @@ function ScrollTop(props) {
 }
 
 // Componenta pentru layout-ul când utilizatorul este autentificat
-function AuthenticatedLayout() {
+function AuthenticatedLayout({ children }) {
   const { currentUser, logout } = useAuth();
   const theme = useTheme();
+  const navigate = useNavigate();
+  const location = useLocation();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const isSmallMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const [anchorEl, setAnchorEl] = useState(null);
-  const [currentView, setCurrentView] = useState("chat"); // 'chat', 'profile', 'about'
 
   const handleMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -148,8 +148,8 @@ function AuthenticatedLayout() {
     logout();
   };
 
-  const handleViewChange = (view) => {
-    setCurrentView(view);
+  const handleNavigation = (path) => {
+    navigate(path);
     handleClose();
   };
 
@@ -181,10 +181,6 @@ function AuthenticatedLayout() {
     };
 
     saveUserToFirestore();
-
-    return () => {
-      // Cleanup code if needed
-    };
   }, [currentUser]);
 
   useEffect(() => {
@@ -218,16 +214,14 @@ function AuthenticatedLayout() {
     initializeUnreadMessagesDoc();
   }, [currentUser]);
 
-  const renderContent = () => {
-    switch (currentView) {
-      case "profile":
-        return <Profile onBack={() => setCurrentView("chat")} />;
-      case "about":
-        return <About onBack={() => setCurrentView("chat")} />;
-      case "chat":
-      default:
-        return <ChatList />;
-    }
+  // Funcție pentru a determina titlul paginii bazat pe rută
+  const getPageTitle = () => {
+    if (location.pathname === '/') return 'USV Chat';
+    if (location.pathname.startsWith('/chat/')) return 'Conversație';
+    if (location.pathname.startsWith('/group/')) return 'Grup';
+    if (location.pathname === '/profile') return 'Profil';
+    if (location.pathname === '/about') return 'Despre';
+    return 'USV Chat';
   };
 
   return (
@@ -320,7 +314,7 @@ function AuthenticatedLayout() {
                 }}
               />
             </Badge>
-            USV Chat
+            {getPageTitle()}
           </Typography>
 
           {isMobile ? (
@@ -441,14 +435,14 @@ function AuthenticatedLayout() {
               </Box>
             </MenuItem>
 
-            <MenuItem onClick={() => handleViewChange("profile")}>
+            <MenuItem onClick={() => handleNavigation("/profile")}>
               <ListItemIcon>
                 <AccountCircleIcon fontSize="small" />
               </ListItemIcon>
               <Typography variant="body2">Profil</Typography>
             </MenuItem>
 
-            <MenuItem onClick={() => handleViewChange("about")}>
+            <MenuItem onClick={() => handleNavigation("/about")}>
               <ListItemIcon>
                 <InfoIcon fontSize="small" />
               </ListItemIcon>
@@ -473,7 +467,7 @@ function AuthenticatedLayout() {
           height: isMobile ? "calc(100% - 56px)" : "calc(100% - 64px)",
         }}
       >
-        {renderContent()}
+        {children}
       </Box>
 
       <ScrollTop>
@@ -530,11 +524,13 @@ function AppContent() {
     );
   }
 
-  // Afișăm pagina de autentificare cu mesajul de eroare dacă există
+  // Dacă utilizatorul este autentificat, afișăm layout-ul autentificat cu routing
   return currentUser ? (
-    <AuthenticatedLayout />
+    <AuthenticatedLayout>
+      <AppRouter />
+    </AuthenticatedLayout>
   ) : (
-    <Auth initialError={accessError} />
+    <AppRouter initialError={accessError} />
   );
 }
 
@@ -690,11 +686,13 @@ function App() {
 
   return (
     <ThemeProvider theme={theme}>
-      <AuthProvider>
-        <AIProvider>
-          <AppContent />
-        </AIProvider>
-      </AuthProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <AIProvider>
+            <AppContent />
+          </AIProvider>
+        </AuthProvider>
+      </BrowserRouter>
     </ThemeProvider>
   );
 }
