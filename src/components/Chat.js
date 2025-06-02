@@ -257,7 +257,7 @@ const Chat = () => {
 
   // Handle navigation back
   const handleBack = () => {
-    navigate('/', { replace: true });
+    navigate('/university-chat', { replace: true });
   };
 
   // Setup swipe gesture handlers (for mobile back navigation)

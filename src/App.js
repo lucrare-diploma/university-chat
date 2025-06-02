@@ -216,7 +216,7 @@ function AuthenticatedLayout({ children }) {
 
   // Funcție pentru a determina titlul paginii bazat pe rută
   const getPageTitle = () => {
-    if (location.pathname === '/') return 'USV Chat';
+    if (location.pathname === '/university-chat') return 'USV Chat';
     if (location.pathname.startsWith('/chat/')) return 'Conversație';
     if (location.pathname.startsWith('/group/')) return 'Grup';
     if (location.pathname === '/profile') return 'Profil';
@@ -284,6 +284,7 @@ function AuthenticatedLayout({ children }) {
               alignItems: "center",
               gap: 1,
             }}
+            onClick={() => handleNavigation("/university-chat")}
           >
             <Badge
               color="secondary"

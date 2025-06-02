@@ -18,7 +18,7 @@ const NotFound = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleGoHome = () => {
-    navigate('/', { replace: true });
+    navigate('/univeristy-chat', { replace: true });
   };
 
   return (
