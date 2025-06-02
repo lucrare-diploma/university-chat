@@ -43,7 +43,11 @@ import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { isAIAvailable } from "../utils/aiSuggestions";
 
-const Profile = ({ onBack }) => {
+import { useParams, useNavigate } from 'react-router-dom';
+
+const Profile = () => {
+  
+  const navigate = useNavigate();
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -224,7 +228,7 @@ const Profile = ({ onBack }) => {
       });
     } else {
       // Just go back if not editing
-      onBack();
+      navigate('/university-chat', { replace: true });
     }
   };
 
@@ -233,11 +237,10 @@ const Profile = ({ onBack }) => {
       setConfirmDialog({
         open: true,
         title: "Renunți la modificări?",
-        message: "Toate modificările efectuate vor fi pierdute.",
-        action: onBack,
+        message: "Toate modificările efectuate vor fi pierdute."
       });
     } else {
-      onBack();
+      navigate('/university-chat', { replace: true });
     }
   };
 

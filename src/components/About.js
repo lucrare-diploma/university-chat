@@ -39,9 +39,17 @@ import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 
 import logo from "../logo.svg";
 
+import { useParams, useNavigate } from 'react-router-dom';
+
 const About = ({ onBack }) => {
+  
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
+
+  const handleBack = () => {
+    navigate('/university-chat', { replace: true });
+  };
   
   // Features list
   const features = [
@@ -132,7 +140,7 @@ const About = ({ onBack }) => {
       >
         <IconButton
           color="inherit"
-          onClick={onBack}
+          onClick={handleBack}
           sx={{ mr: 2 }}
         >
           <ArrowBackIcon />
