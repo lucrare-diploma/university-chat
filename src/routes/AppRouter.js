@@ -13,13 +13,21 @@ import ProtectedRoute from './ProtectedRoute';
 const AppRouter = ({ initialError }) => {
   const { currentUser } = useAuth();
 
-  if (!currentUser) {
-    return <Auth initialError={initialError} />;
-  }
-
   return (
     <Routes>
-      {/* Ruta principală - lista de chat-uri */}
+      {/* Ruta pentru autentificare */}
+      <Route 
+        path="/auth" 
+        element={
+          !currentUser ? (
+            <Auth initialError={initialError} />
+          ) : (
+            <Navigate to="/" replace />
+          )
+        } 
+      />
+      
+      {/* Ruta principală - lista de chat-uri (protejată) */}
       <Route 
         path="/" 
         element={
@@ -29,7 +37,7 @@ const AppRouter = ({ initialError }) => {
         } 
       />
       
-      {/* Chat individual cu un utilizator */}
+      {/* Chat individual cu un utilizator (protejat) */}
       <Route 
         path="/chat/:userId" 
         element={
@@ -39,7 +47,7 @@ const AppRouter = ({ initialError }) => {
         } 
       />
       
-      {/* Chat de grup */}
+      {/* Chat de grup (protejat) */}
       <Route 
         path="/group/:groupId" 
         element={
@@ -49,7 +57,7 @@ const AppRouter = ({ initialError }) => {
         } 
       />
       
-      {/* Profil utilizator */}
+      {/* Profil utilizator (protejat) */}
       <Route 
         path="/profile" 
         element={
@@ -59,7 +67,7 @@ const AppRouter = ({ initialError }) => {
         } 
       />
       
-      {/* Despre aplicație */}
+      {/* Despre aplicație (protejat) */}
       <Route 
         path="/about" 
         element={
@@ -69,8 +77,10 @@ const AppRouter = ({ initialError }) => {
         } 
       />
       
-      {/* Redirecționare pentru rute inexistente */}
+      {/* Pagina 404 */}
       <Route path="/404" element={<NotFound />} />
+      
+      {/* Redirect pentru rute inexistente */}
       <Route path="*" element={<Navigate to="/404" replace />} />
     </Routes>
   );

@@ -1,6 +1,8 @@
+// src/components/Chat.js
 import { getDoc, doc } from 'firebase/firestore';
 import { getChatEncryptionKey, generateGroupChatId } from '../utils/encryption';
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -52,7 +54,18 @@ import MessageInput from "./MessageInput";
 import { encryptMessage, decryptMessage, generateChatKey } from "../utils/encryption";
 import { getAISuggestions, isAIAvailable, getLocalSuggestions } from "../utils/aiSuggestions";
 
-const Chat = ({ selectedUser, onBack, onSwipe }) => {
+const Chat = () => {
+  // Routing hooks
+  const { userId, groupId } = useParams();
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
+
+  // State pentru date utilizator/grup
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loadingUserData, setLoadingUserData] = useState(true);
+  const [userDataError, setUserDataError] = useState(null);
+
+  // State pentru mesaje și funcționalități existente
   const [messages, setMessages] = useState([]);
   const [decryptedMessages, setDecryptedMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,7 +83,6 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   const [aiEnabled, setAiEnabled] = useState(true);
 
-  const { currentUser } = useAuth();
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const prevScrollHeightRef = useRef(0);
@@ -79,17 +91,99 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   // Media queries pentru diferite dimensiuni de ecran
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
   const isExtraSmall = useMediaQuery(theme.breakpoints.down('xs'));
-  const isVerySmall = useMediaQuery('(max-width:380px)'); // Pentru telefoane foarte mici
+  const isVerySmall = useMediaQuery('(max-width:380px)');
   const isPortrait = useMediaQuery('(orientation: portrait)');
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
 
+  // Încărcare date utilizator/grup bazat pe parametrii URL
+  useEffect(() => {
+    const loadChatData = async () => {
+      if (!currentUser) {
+        navigate('/auth');
+        return;
+      }
+
+      setLoadingUserData(true);
+      setUserDataError(null);
+
+      try {
+        if (userId) {
+          // Încarcă datele utilizatorului pentru chat individual
+          console.log("Încărcare date utilizator pentru chat:", userId);
+          
+          if (userId === currentUser.uid) {
+            // Chat cu sine însuși
+            setSelectedUser({
+              id: currentUser.uid,
+              displayName: currentUser.displayName,
+              email: currentUser.email,
+              photoURL: currentUser.photoURL,
+              online: true,
+              type: 'user',
+              isSelf: true
+            });
+          } else {
+            // Chat cu alt utilizator
+            const userDoc = await getDoc(doc(db, "users", userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              setSelectedUser({
+                id: userId,
+                ...userData,
+                type: 'user',
+                isSelf: false
+              });
+            } else {
+              setUserDataError("Utilizatorul nu a fost găsit");
+              return;
+            }
+          }
+        } else if (groupId) {
+          // Încarcă datele grupului
+          console.log("Încărcare date grup pentru chat:", groupId);
+          const groupDoc = await getDoc(doc(db, "groups", groupId));
+          if (groupDoc.exists()) {
+            const groupData = groupDoc.data();
+            
+            // Verifică dacă utilizatorul curent este membru al grupului
+            if (!groupData.members?.includes(currentUser.uid)) {
+              setUserDataError("Nu ești membru al acestui grup");
+              return;
+            }
+            
+            setSelectedUser({
+              id: groupId,
+              ...groupData,
+              type: 'group'
+            });
+          } else {
+            setUserDataError("Grupul nu a fost găsit");
+            return;
+          }
+        } else {
+          setUserDataError("ID invalid pentru chat");
+          return;
+        }
+      } catch (error) {
+        console.error("Eroare la încărcarea datelor chat:", error);
+        setUserDataError("Eroare la încărcarea datelor: " + error.message);
+      } finally {
+        setLoadingUserData(false);
+      }
+    };
+
+    loadChatData();
+  }, [userId, groupId, currentUser, navigate]);
+
   // Verifică dacă utilizatorul actual este într-o conversație cu sine
-  const isSelfChat = selectedUser?.id === currentUser?.uid;
+  const isSelfChat = selectedUser?.isSelf || selectedUser?.id === currentUser?.uid;
 
   // Generează ID-ul conversației - sortează ID-urile utilizatorilor pentru consistență
   const getChatId = useCallback(() => {
+    if (!selectedUser) return '';
+    
     // Pentru grupuri
-    if (selectedUser?.type === 'group') {
+    if (selectedUser.type === 'group') {
       return generateGroupChatId(selectedUser.id);
     }
     
@@ -106,7 +200,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   // Generate encryption key for this chat when users are selected
   useEffect(() => {
     const generateChatKey = async () => {
-      if (currentUser && selectedUser) {
+      if (currentUser && selectedUser && !loadingUserData) {
         try {
           let key;
           if (selectedUser.type === 'group') {
@@ -130,7 +224,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     };
   
     generateChatKey();
-  }, [currentUser, selectedUser, getChatId]);
+  }, [currentUser, selectedUser, getChatId, loadingUserData]);
 
   // Verifică dacă utilizatorul are activată funcționalitatea AI
   useEffect(() => {
@@ -161,6 +255,11 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     messagesEndRef.current?.scrollIntoView({ behavior });
   };
 
+  // Handle navigation back
+  const handleBack = () => {
+    navigate('/', { replace: true });
+  };
+
   // Setup swipe gesture handlers (for mobile back navigation)
   const handleTouchStart = (e) => {
     setTouchStart({
@@ -170,7 +269,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   };
 
   const handleTouchEnd = (e) => {
-    if (!touchStart || !onSwipe) return;
+    if (!touchStart) return;
 
     const xDiff = touchStart.x - e.changedTouches[0].clientX;
     const yDiff = touchStart.y - e.changedTouches[0].clientY;
@@ -178,9 +277,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     // Only register horizontal swipes that are more significant than vertical
     if (Math.abs(xDiff) > Math.abs(yDiff) && Math.abs(xDiff) > 70) {
       if (xDiff < 0) { // Swiped right
-        onSwipe("right");
-      } else { // Swiped left
-        onSwipe("left");
+        handleBack();
       }
     }
 
@@ -261,15 +358,14 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
 
   // Încarcă mesajele în timp real
   useEffect(() => {
-    if (!selectedUser || !currentUser || !chatKey) return;
+    if (!selectedUser || !currentUser || !chatKey || loadingUserData) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      console.log("Încărcare mesaje pentru conversația între", currentUser.uid, "și", selectedUser.id);
+      console.log("Încărcare mesaje pentru conversația:", getChatId());
       const chatId = getChatId();
-      console.log("Chat ID:", chatId);
 
       const messagesRef = collection(db, "messages");
       const q = query(
@@ -348,7 +444,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       setError("Eroare la configurare: " + error.message);
       setLoading(false);
     }
-  }, [currentUser, selectedUser, getChatId, chatKey, messagesLimit]);
+  }, [currentUser, selectedUser, getChatId, chatKey, messagesLimit, loadingUserData]);
 
   // Generează sugestii de la API-ul AI
   const generateAISuggestions = async (chatId, messages) => {
@@ -367,12 +463,12 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     try {
       setLoadingSuggestions(true);
       
-      // Verifică disponibilitatea API-ului Claude
+      // Verifică disponibilitatea API-ului AI
       let suggestions = [];
       if (isAIAvailable()) {
         suggestions = await getAISuggestions(chatId, currentUser.uid, messages);
       } else {
-        console.log("API-ul Claude nu este disponibil, se folosesc sugestii locale");
+        console.log("API-ul AI nu este disponibil, se folosesc sugestii locale");
         suggestions = getLocalSuggestions(messages);
       }
       
@@ -388,7 +484,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
   // Marcarea mesajelor ca fiind citite când se deschide conversația
   useEffect(() => {
     const markMessagesAsRead = async () => {
-      if (!selectedUser || !currentUser) return;
+      if (!selectedUser || !currentUser || loadingUserData) return;
       
       // Dacă este chat cu sine, nu e necesar să marcăm mesajele ca fiind citite
       if (isSelfChat) return;
@@ -442,7 +538,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     };
 
     markMessagesAsRead();
-  }, [currentUser, selectedUser, getChatId, isSelfChat]);
+  }, [currentUser, selectedUser, getChatId, isSelfChat, loadingUserData]);
 
   // Derulează automat la ultimul mesaj când se adaugă mesaje noi
   useEffect(() => {
@@ -480,8 +576,15 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         throw new Error("Encryption failed");
       }
 
-      // În cazul conversației cu sine, expeditorul și destinatarul sunt aceeași persoană
-      const receiverId = isSelfChat ? currentUser.uid : selectedUser.id;
+      // Determinăm receiverId bazat pe tipul de chat
+      let receiverId;
+      if (selectedUser.type === 'group') {
+        receiverId = selectedUser.id; // Pentru grupuri, receiverId este ID-ul grupului
+      } else if (isSelfChat) {
+        receiverId = currentUser.uid; // Pentru chat cu sine
+      } else {
+        receiverId = selectedUser.id; // Pentru chat individual
+      }
 
       // Adaugă mesajul în colecția de mesaje
       await addDoc(collection(db, "messages"), {
@@ -492,13 +595,13 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         senderName: currentUser.displayName || "Utilizator",
         senderPhoto: currentUser.photoURL,
         chatId,
-        createdAt: serverTimestamp(), // Folosește serverTimestamp pentru consistență
+        createdAt: serverTimestamp(),
         read: isSelfChat, // Marcăm deja ca citit dacă este chat cu sine
         delivered: true // Marcăm mesajul ca livrat
       });
 
-      // Incrementează contorul de mesaje necitite pentru destinatar doar dacă nu e chat cu sine
-      if (!isSelfChat) {
+      // Incrementează contorul de mesaje necitite pentru destinatar doar dacă nu e chat cu sine și nu e grup
+      if (!isSelfChat && selectedUser.type !== 'group') {
         const userUnreadCountsRef = doc(db, "userUnreadCounts", receiverId);
 
         try {
@@ -570,13 +673,67 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
     return new Date(date).toLocaleDateString('ro-RO', options);
   };
 
+  // Loading state pentru încărcarea datelor utilizatorului/grupului
+  if (loadingUserData) {
+    return (
+      <Box sx={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        p: 3,
+        gap: 2,
+      }}>
+        <CircularProgress size={40} />
+        <Typography variant="body1" color="text.secondary">
+          {userId ? "Se încarcă utilizatorul..." : "Se încarcă grupul..."}
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Error state pentru datele utilizatorului/grupului
+  if (userDataError) {
+    return (
+      <Box sx={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "center",
+        alignItems: "center",
+        height: "100vh",
+        p: 3,
+        gap: 2,
+        textAlign: "center"
+      }}>
+        <Typography variant="h6" color="error" gutterBottom>
+          {userDataError}
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={handleBack}
+          startIcon={<ArrowBackIcon />}
+        >
+          Înapoi la conversații
+        </Button>
+      </Box>
+    );
+  }
+
+  if (!selectedUser) {
+    return null;
+  }
+
   const badgeStatus = selectedUser?.online ? "success" : "default";
 
   // Text pentru titlul conversației
-  const chatTitle = isSelfChat ? "Notițe personale" : selectedUser?.displayName;
+  const chatTitle = isSelfChat 
+    ? "Notițe personale" 
+    : selectedUser?.type === 'group' 
+      ? selectedUser?.name 
+      : selectedUser?.displayName;
 
   // Ajustări responsiv pentru înălțimea containerului de mesaje
-  // Aceste valori se ajustează în funcție de dimensiunea ecranului
   const getMessageContainerHeight = () => {
     if (isVerySmall) return "calc(100% - 110px)";
     if (isExtraSmall) return "calc(100% - 120px)";
@@ -605,29 +762,29 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
         color="primary"
         elevation={1}
         sx={{
-          backgroundColor: isSelfChat ? "success.dark" : "primary.dark",
+          backgroundColor: isSelfChat ? "success.dark" : selectedUser?.type === 'group' ? "secondary.dark" : "primary.dark",
           borderBottom: 1,
           borderColor: "divider",
           zIndex: 10,
           top: 0,
-          minHeight: isVerySmall ? 48 : (isMobile ? 56 : 64), // Înălțime adaptivă
+          minHeight: isVerySmall ? 48 : (isMobile ? 56 : 64),
         }}
       >
         <Toolbar 
           sx={{ 
             minHeight: isVerySmall ? 48 : (isMobile ? 56 : 64),
-            p: isVerySmall ? 0.5 : (isMobile ? 1 : 2), // Padding adaptiv
+            p: isVerySmall ? 0.5 : (isMobile ? 1 : 2),
           }}
         >
           <IconButton
             edge="start"
             color="inherit"
-            onClick={onBack}
+            onClick={handleBack}
             sx={{
               mr: isVerySmall ? 0.5 : (isMobile ? 1 : 2),
               transition: "all 0.2s",
               color: "white",
-              padding: isVerySmall ? '4px' : undefined, // Padding mai mic pentru telefoane foarte mici
+              padding: isVerySmall ? '4px' : undefined,
               "&:hover": {
                 backgroundColor: alpha("#ffffff", 0.1)
               }
@@ -635,45 +792,68 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             aria-label="înapoi"
             size={isVerySmall ? "small" : "medium"}
           >
-            {isMobile ? <ArrowBackIcon fontSize={isVerySmall ? "small" : "medium"} /> : <MenuIcon />}
+            <ArrowBackIcon fontSize={isVerySmall ? "small" : "medium"} />
           </IconButton>
-          <Badge
-            overlap="circular"
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-            variant="dot"
-            color={badgeStatus}
-            sx={{
-              "& .MuiBadge-badge": {
-                boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
-                width: isVerySmall ? 8 : 12,
-                height: isVerySmall ? 8 : 12,
-                borderRadius: '50%'
-              }
-            }}
-          >
+          
+          {selectedUser?.type !== 'group' && (
+            <Badge
+              overlap="circular"
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              variant="dot"
+              color={badgeStatus}
+              sx={{
+                "& .MuiBadge-badge": {
+                  boxShadow: `0 0 0 2px ${theme.palette.background.paper}`,
+                  width: isVerySmall ? 8 : 12,
+                  height: isVerySmall ? 8 : 12,
+                  borderRadius: '50%'
+                }
+              }}
+            >
+              <Avatar
+                src={selectedUser?.photoURL}
+                alt={selectedUser?.displayName}
+                sx={{
+                  mr: isVerySmall ? 1 : 2,
+                  width: isVerySmall ? 32 : (isMobile ? 36 : 48),
+                  height: isVerySmall ? 32 : (isMobile ? 36 : 48),
+                  cursor: "pointer",
+                  transition: "transform 0.2s ease",
+                  "&:hover": {
+                    transform: "scale(1.05)"
+                  }
+                }}
+                onClick={toggleInfoDrawer}
+              >
+                {selectedUser?.displayName?.charAt(0) || selectedUser?.name?.charAt(0) || "U"}
+              </Avatar>
+            </Badge>
+          )}
+          
+          {selectedUser?.type === 'group' && (
             <Avatar
-              src={selectedUser?.photoURL}
-              alt={selectedUser?.displayName}
               sx={{
                 mr: isVerySmall ? 1 : 2,
                 width: isVerySmall ? 32 : (isMobile ? 36 : 48),
                 height: isVerySmall ? 32 : (isMobile ? 36 : 48),
                 cursor: "pointer",
                 transition: "transform 0.2s ease",
+                bgcolor: "secondary.main",
                 "&:hover": {
                   transform: "scale(1.05)"
                 }
               }}
               onClick={toggleInfoDrawer}
             >
-              {selectedUser?.displayName?.charAt(0) || "U"}
+              {selectedUser?.name?.charAt(0) || "G"}
             </Avatar>
-          </Badge>
+          )}
+          
           <Box
             sx={{
               flexGrow: 1,
               cursor: "pointer",
-              overflow: "hidden", // Previne textul prea lung să depășească container-ul
+              overflow: "hidden",
               "&:hover": {
                 opacity: 0.8
               }
@@ -703,19 +883,38 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 opacity: 0.85
               }}
             >
-              <Box
-                sx={{
-                  width: isVerySmall ? 6 : 8,
-                  height: isVerySmall ? 6 : 8,
-                  borderRadius: "50%",
-                  bgcolor: selectedUser?.online ? "success.main" : "text.disabled",
-                  mr: 0.5,
-                  display: "inline-block"
-                }}
-              />
-              {isSelfChat 
-                ? (isVerySmall ? "Privat" : "Doar tu poți vedea aceste mesaje") 
-                : selectedUser?.online ? "Online" : "Offline"}
+              {selectedUser?.type === 'group' && (
+                <>
+                  <Box
+                    sx={{
+                      width: isVerySmall ? 6 : 8,
+                      height: isVerySmall ? 6 : 8,
+                      borderRadius: "50%",
+                      bgcolor: "success.main",
+                      mr: 0.5,
+                      display: "inline-block"
+                    }}
+                  />
+                  {selectedUser?.members?.length || 0} membri
+                </>
+              )}
+              {selectedUser?.type !== 'group' && (
+                <>
+                  <Box
+                    sx={{
+                      width: isVerySmall ? 6 : 8,
+                      height: isVerySmall ? 6 : 8,
+                      borderRadius: "50%",
+                      bgcolor: selectedUser?.online ? "success.main" : "text.disabled",
+                      mr: 0.5,
+                      display: "inline-block"
+                    }}
+                  />
+                  {isSelfChat 
+                    ? (isVerySmall ? "Privat" : "Doar tu poți vedea aceste mesaje") 
+                    : selectedUser?.online ? "Online" : "Offline"}
+                </>
+              )}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
@@ -819,8 +1018,8 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                   }} 
                 />
                 {isVerySmall 
-                  ? (isSelfChat ? "Privat" : "Criptat") 
-                  : (isSelfChat ? "Conversație privată" : "Conversație criptată")
+                  ? (isSelfChat ? "Privat" : selectedUser?.type === 'group' ? "Criptat" : "Criptat") 
+                  : (isSelfChat ? "Conversație privată" : selectedUser?.type === 'group' ? "Grup criptat" : "Conversație criptată")
                 }
               </Box>
             </Tooltip>
@@ -839,8 +1038,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           bgcolor: theme.palette.background.default,
           mt: isVerySmall ? 2 : 3,
           position: "relative",
-          height: getMessageContainerHeight(), // Înălțime adaptivă
-          // Îmbunătățim scrolling-ul pentru dispozitive touch
+          height: getMessageContainerHeight(),
           WebkitOverflowScrolling: "touch",
         }}
         onScroll={handleScroll}
@@ -932,7 +1130,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 key={message.id}
                 message={message}
                 isOwn={message.senderId === currentUser.uid}
-                isMobile={isMobile || isTablet || isExtraSmall || isVerySmall} // Trimit toate indicațiile despre dimensiunea ecranului
+                isMobile={isMobile || isTablet || isExtraSmall || isVerySmall}
                 isGroupedWithPrev={isGroupedWithPrev && !timeGap}
                 isGroupedWithNext={isGroupedWithNext}
                 showAvatar={!isGroupedWithNext || !nextMessage}
@@ -968,7 +1166,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             >
               {isSelfChat 
                 ? "Notițele tale vor apărea aici" 
-                : "Nicio conversație încă"}
+                : selectedUser?.type === 'group'
+                  ? "Niciun mesaj în grup încă"
+                  : "Nicio conversație încă"}
             </Typography>
             <Typography 
               variant="body2" 
@@ -981,7 +1181,9 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
             >
               {isSelfChat 
                 ? "Trimite un mesaj pentru a crea notițe personale criptate end-to-end" 
-                : `Trimite primul mesaj pentru a începe o conversație criptată cu ${selectedUser?.displayName}`}
+                : selectedUser?.type === 'group'
+                  ? `Trimite primul mesaj în grupul "${selectedUser?.name}"`
+                  : `Trimite primul mesaj pentru a începe o conversație criptată cu ${selectedUser?.displayName}`}
             </Typography>
           </Box>
         )}
@@ -1003,7 +1205,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
       >
         <MessageInput 
           onSendMessage={handleSendMessage} 
-          isMobile={isMobile || isExtraSmall || isVerySmall} // Trimit toate indicațiile despre dimensiunea ecranului
+          isMobile={isMobile || isExtraSmall || isVerySmall}
           aiSuggestions={aiSuggestions}
           loadingSuggestions={loadingSuggestions}
           onSuggestionUsed={handleSuggestionUsed}
@@ -1059,23 +1261,39 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 3 }}>
             <Avatar
               src={selectedUser?.photoURL}
-              alt={selectedUser?.displayName}
+              alt={selectedUser?.displayName || selectedUser?.name}
               sx={{ 
                 width: isVerySmall ? 64 : 80, 
                 height: isVerySmall ? 64 : 80, 
-                mb: 1.5 
+                mb: 1.5,
+                bgcolor: selectedUser?.type === 'group' ? 'secondary.main' : 'primary.main'
               }}
             >
-              {selectedUser?.displayName?.charAt(0) || "U"}
+              {(selectedUser?.displayName?.charAt(0) || selectedUser?.name?.charAt(0) || "U")}
             </Avatar>
             <Typography 
               variant={isVerySmall ? "subtitle1" : "h6"} 
               align="center"
               sx={{ fontSize: isVerySmall ? '1rem' : '1.25rem' }}
             >
-              {isSelfChat ? "Notițe personale" : selectedUser?.displayName}
+              {chatTitle}
             </Typography>
-            {!isSelfChat && (
+            {selectedUser?.type === 'group' && (
+              <Box sx={{
+                display: 'flex',
+                alignItems: 'center',
+                mt: 0.5,
+                bgcolor: 'secondary.main',
+                color: 'white',
+                px: 1.5,
+                py: 0.3,
+                borderRadius: 10,
+                fontSize: isVerySmall ? '0.65rem' : '0.75rem'
+              }}>
+                Grup · {selectedUser?.members?.length || 0} membri
+              </Box>
+            )}
+            {selectedUser?.type !== 'group' && !isSelfChat && (
               <Box sx={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1116,9 +1334,7 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
                 variant={isVerySmall ? "caption" : "body2"} 
                 fontWeight={500}
               >
-                {isSelfChat 
-                  ? "Mesajele sunt criptate end-to-end" 
-                  : "Mesajele sunt criptate end-to-end"}
+                Mesajele sunt criptate end-to-end
               </Typography>
               <Typography 
                 variant={isVerySmall ? "caption" : "caption"} 
@@ -1127,12 +1343,56 @@ const Chat = ({ selectedUser, onBack, onSwipe }) => {
               >
                 {isSelfChat 
                   ? "Doar tu poți citi aceste notițe." 
-                  : "Nimeni nu poate citi mesajele voastre în afară de voi, nici măcar noi."}
+                  : selectedUser?.type === 'group'
+                    ? "Doar membrii grupului pot citi mesajele."
+                    : "Nimeni nu poate citi mesajele voastre în afară de voi, nici măcar noi."}
               </Typography>
             </Box>
           </Box>
 
-          {!isSelfChat && (
+          {selectedUser?.type === 'group' && (
+            <>
+              <Typography 
+                variant={isVerySmall ? "caption" : "subtitle2"} 
+                color="primary" 
+                gutterBottom
+              >
+                Detalii grup
+              </Typography>
+              <Box sx={{ mb: isVerySmall ? 1 : 2 }}>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"} 
+                  color="text.secondary" 
+                  gutterBottom
+                >
+                  Cod grup
+                </Typography>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"}
+                  sx={{ fontSize: isVerySmall ? '0.7rem' : 'inherit', fontFamily: 'monospace' }}
+                >
+                  {selectedUser?.code || 'Necunoscut'}
+                </Typography>
+              </Box>
+              <Box sx={{ mb: isVerySmall ? 1 : 2 }}>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"} 
+                  color="text.secondary" 
+                  gutterBottom
+                >
+                  Descriere
+                </Typography>
+                <Typography 
+                  variant={isVerySmall ? "caption" : "body2"}
+                  sx={{ fontSize: isVerySmall ? '0.7rem' : 'inherit' }}
+                >
+                  {selectedUser?.description || 'Fără descriere'}
+                </Typography>
+              </Box>
+            </>
+          )}
+
+          {!isSelfChat && selectedUser?.type !== 'group' && (
             <>
               <Typography 
                 variant={isVerySmall ? "caption" : "subtitle2"} 
