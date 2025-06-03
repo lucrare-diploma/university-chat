@@ -172,17 +172,9 @@ const Auth = ({ initialError }) => {
                   justifyContent: "center",
                   gap: 1,
                   mb: 3,
-                  bgcolor: "success.main",
-                  color: "success.contrastText",
                   py: 1,
                   px: 2,
-                  borderRadius: 2,
-                  width: "100%",
-                  transition: "all 0.2s ease",
-                  "&:hover": {
-                    transform: "translateY(-2px)",
-                    boxShadow: 2
-                  }
+                  width: "100%"
                 }}
               >
                 <LockIcon color="inherit" fontSize="small" />
