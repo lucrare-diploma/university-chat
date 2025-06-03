@@ -22,7 +22,7 @@ const AppRouter = ({ initialError }) => {
           !currentUser ? (
             <Auth initialError={initialError} />
           ) : (
-            <Navigate to="/" replace />
+            <Navigate to="/university-chat" replace />
           )
         } 
       />
