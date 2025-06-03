@@ -60,7 +60,7 @@ const Auth = ({ initialError }) => {
           setError("Acces permis doar pentru adrese de email din domeniile usv.ro sau usm.ro.");
         } else {
           // Navigăm către pagina dorită sau home
-          const from = location.state?.from?.pathname || '/';
+          const from = location.state?.from?.pathname || '/university-chat';
           navigate(from, { replace: true });
         }
       }
